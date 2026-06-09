@@ -1,0 +1,11 @@
+{
+  "projectName": "Udseen",
+  "languages": [
+    {
+      "id": "udseen",
+      "fileExtensions": [".ykn"],
+      "grammar": "src/renderer/engine/parser/udseen.langium"
+    }
+  ],
+  "out": "src/renderer/engine/parser/generated"
+}

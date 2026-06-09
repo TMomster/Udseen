@@ -1,0 +1,16 @@
+# Github
+node_modules/
+out/
+dist/
+dist-electron/
+release/
+dist-types/
+
+*.tsbuildinfo
+.DS_Store
+*.log
+
+# Momster
+assets/
+doc/
+logs/
