@@ -1,4 +1,13 @@
-import { BrowserWindow, Menu, MenuItemConstructorOptions, app } from 'electron'
+import { BrowserWindow, Menu, MenuItemConstructorOptions, app, shell } from 'electron'
+import { join } from 'path'
+import * as fs from 'fs'
+
+/** 安全地发送 IPC 消息到渲染进程，忽略渲染器已销毁的情况 */
+function safeSend(win: BrowserWindow, channel: string, ...args: unknown[]): void {
+  if (!win.webContents.isDestroyed()) {
+    win.webContents.send(channel, ...args)
+  }
+}
 
 export function createMenu(mainWindow: BrowserWindow): void {
   const isMac = process.platform === 'darwin'
@@ -22,23 +31,17 @@ export function createMenu(mainWindow: BrowserWindow): void {
         {
           label: '新建脚本',
           accelerator: 'CmdOrCtrl+N',
-          click: () => mainWindow.webContents.send('menu:newFile')
+          click: () => safeSend(mainWindow, 'menu:newFile')
         },
         {
           label: '打开脚本...',
           accelerator: 'CmdOrCtrl+O',
-          click: () => mainWindow.webContents.send('menu:openFile')
+          click: () => safeSend(mainWindow, 'menu:openFile')
         },
         {
           label: '保存',
           accelerator: 'CmdOrCtrl+S',
-          click: () => mainWindow.webContents.send('menu:saveFile')
-        },
-        { type: 'separator' },
-        {
-          label: '导出为 HTML...',
-          accelerator: 'CmdOrCtrl+E',
-          click: () => mainWindow.webContents.send('menu:exportHtml')
+          click: () => safeSend(mainWindow, 'menu:saveFile')
         },
         { type: 'separator' },
         isMac ? { label: '关闭窗口', role: 'close' } : { label: '退出', role: 'quit' }
@@ -62,17 +65,17 @@ export function createMenu(mainWindow: BrowserWindow): void {
         {
           label: '运行 / 停止脚本',
           accelerator: 'CmdOrCtrl+B',
-          click: () => mainWindow.webContents.send('menu:runScript')
+          click: () => safeSend(mainWindow, 'menu:runScript')
         },
         {
           label: '运行 / 停止脚本 (F5)',
           accelerator: 'F5',
           visible: false,
-          click: () => mainWindow.webContents.send('menu:runScript')
+          click: () => safeSend(mainWindow, 'menu:runScript')
         },
         {
           label: '停止运行',
-          click: () => mainWindow.webContents.send('menu:stopScript')
+          click: () => safeSend(mainWindow, 'menu:stopScript')
         }
       ]
     },
@@ -90,8 +93,53 @@ export function createMenu(mainWindow: BrowserWindow): void {
         { label: '全屏', role: 'togglefullscreen' },
         { type: 'separator' },
         {
+          label: '演出区域边界裁剪',
+          type: 'checkbox',
+          checked: false,
+          click: () => safeSend(mainWindow, 'menu:toggleCropPreview')
+        },
+        { type: 'separator' },
+        {
+          label: '资源预览气泡',
+          type: 'checkbox',
+          checked: true,
+          click: () => safeSend(mainWindow, 'menu:toggleResourcePreview')
+        },
+        { type: 'separator' },
+        {
+          label: '切换编辑模式',
+          accelerator: 'CmdOrCtrl+E',
+          click: () => safeSend(mainWindow, 'menu:toggleEditMode')
+        },
+        { type: 'separator' },
+        {
           label: '模板设置',
-          click: () => mainWindow.webContents.send('menu:openTemplateSettings')
+          click: () => safeSend(mainWindow, 'menu:openTemplateSettings')
+        }
+      ]
+    },
+    {
+      label: '帮助',
+      submenu: [
+        {
+          label: '内置帮助',
+          accelerator: 'F1',
+          click: () => safeSend(mainWindow, 'menu:openHelp')
+        },
+        { type: 'separator' },
+        {
+          label: '打开资源目录',
+          click: () => {
+            const appPath = app.getAppPath()
+            const publicDir = join(appPath, 'assets', 'public')
+            if (fs.existsSync(publicDir)) {
+              shell.openPath(publicDir)
+            } else {
+              // 目录不存在则创建后打开
+              fs.mkdirSync(publicDir, { recursive: true })
+              shell.openPath(publicDir)
+            }
+          }
         }
       ]
     }
