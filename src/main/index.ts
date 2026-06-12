@@ -1,6 +1,8 @@
 import { app, BrowserWindow, shell, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import * as fs from 'fs'
+import { execFile } from 'child_process'
+import pidusage from 'pidusage'
 import { createMenu } from './menu'
 
 // Chromium 磁盘缓存损坏时会导致窗口无法渲染，禁用内存缓存
@@ -72,15 +74,7 @@ ipcMain.handle('fs:writeFile', async (_event, filePath: string, content: string)
   return true
 })
 
-ipcMain.handle('dialog:exportHtml', async (_event, htmlContent: string) => {
-  const result = await dialog.showSaveDialog(mainWindow!, {
-    title: '导出为 HTML',
-    filters: [{ name: 'HTML 文件', extensions: ['html'] }]
-  })
-  if (result.canceled || !result.filePath) return false
-  fs.writeFileSync(result.filePath, htmlContent, 'utf-8')
-  return true
-})
+
 
 ipcMain.handle('fs:readFile', async (_event, filePath: string) => {
   return fs.readFileSync(filePath, 'utf-8')
@@ -95,7 +89,14 @@ ipcMain.handle('fs:readBinary', async (_event, filePath: string) => {
     jpeg: 'image/jpeg',
     gif: 'image/gif',
     webp: 'image/webp',
-    svg: 'image/svg+xml'
+    svg: 'image/svg+xml',
+    mp3: 'audio/mpeg',
+    ogg: 'audio/ogg',
+    opus: 'audio/opus',
+    wav: 'audio/wav',
+    aac: 'audio/aac',
+    m4a: 'audio/mp4',
+    flac: 'audio/flac'
   }
   const mime = mimeMap[ext || ''] || 'application/octet-stream'
   return `data:${mime};base64,${buffer.toString('base64')}`
@@ -121,6 +122,141 @@ ipcMain.handle('window:setMenuBarVisible', async (_event, visible: boolean) => {
 
 ipcMain.handle('app:getPath', async () => {
   return app.getAppPath()
+})
+
+ipcMain.handle('shell:openPublicDir', async () => {
+  const appPath = app.getAppPath()
+  const publicDir = join(appPath, 'assets', 'public')
+  if (!fs.existsSync(publicDir)) {
+    fs.mkdirSync(publicDir, { recursive: true })
+  }
+  shell.openPath(publicDir)
+})
+
+// --- 文件系统操作（资源管理器） ---
+
+ipcMain.handle('fs:copyFile', async (_event, src: string, dest: string) => {
+  fs.copyFileSync(src, dest)
+  return true
+})
+
+ipcMain.handle('fs:moveFile', async (_event, src: string, dest: string) => {
+  fs.renameSync(src, dest)
+  return true
+})
+
+ipcMain.handle('fs:deleteFile', async (_event, filePath: string) => {
+  fs.unlinkSync(filePath)
+  return true
+})
+
+ipcMain.handle('fs:deleteDir', async (_event, dirPath: string) => {
+  fs.rmSync(dirPath, { recursive: true, force: true })
+  return true
+})
+
+ipcMain.handle('fs:rename', async (_event, oldPath: string, newPath: string) => {
+  fs.renameSync(oldPath, newPath)
+  return true
+})
+
+ipcMain.handle('fs:mkdir', async (_event, dirPath: string) => {
+  fs.mkdirSync(dirPath, { recursive: true })
+  return true
+})
+
+ipcMain.handle('app:getPublicDir', async () => {
+  const appPath = app.getAppPath()
+  return join(appPath, 'assets', 'public')
+})
+
+// --- System Resource Monitoring (PIDUsage) ---
+
+/**
+ * pidusage 返回的 stats 字段：
+ *   cpu     - CPU 使用率（百分比，归一化到单核）
+ *   memory  - 物理内存占用（bytes）
+ *   elapsed - 进程已运行时间（ms）
+ *   pid     - 进程 ID
+ */
+ipcMain.handle('system:resourceUsage', async () => {
+  const stats = await pidusage(process.pid)
+  return {
+    cpuPercent: Math.round(stats.cpu * 10) / 10, // 保留一位小数
+    memoryMB: Math.round(stats.memory / 1024 / 1024)
+  }
+})
+
+// --- GPU 实时利用率（NVIDIA nvidia-smi） ---
+
+/** 调用 nvidia-smi 解析 GPU 实时信息 */
+function queryNvidiaSmi(): Promise<{
+  utilizationPercent: number
+  memoryUsedMB: number
+  memoryTotalMB: number
+  temperature: number
+  name: string
+} | null> {
+  return new Promise((resolve) => {
+    execFile(
+      'nvidia-smi',
+      [
+        '--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu,name',
+        '--format=csv,noheader,nounits'
+      ],
+      { timeout: 2000 },
+      (err, stdout) => {
+        if (err) {
+          resolve(null)
+          return
+        }
+        const parts = stdout.trim().split(', ')
+        if (parts.length < 5) {
+          resolve(null)
+          return
+        }
+        resolve({
+          utilizationPercent: Math.round(parseFloat(parts[0])),
+          memoryUsedMB: Math.round(parseFloat(parts[1])),
+          memoryTotalMB: Math.round(parseFloat(parts[2])),
+          temperature: Math.round(parseFloat(parts[3])),
+          name: parts.slice(4).join(', ')
+        })
+      }
+    )
+  })
+}
+
+ipcMain.handle('system:gpuInfo', async () => {
+  // 1. 基础 GPU 信息（品牌/型号）来自 Electron
+  let gpuName = 'Unknown'
+  try {
+    const gpuInfo = await app.getGPUInfo('complete')
+    gpuName = gpuInfo.gpuDevice?.[0]?.deviceName ?? 'Unknown'
+  } catch {
+    // getGPUInfo 可能在某些环境下失败，忽略
+  }
+
+  // 2. 尝试 nvidia-smi 获取实时利用率
+  const nvidia = await queryNvidiaSmi()
+  if (nvidia) {
+    return {
+      name: nvidia.name || gpuName,
+      utilizationPercent: nvidia.utilizationPercent,
+      memoryUsedMB: nvidia.memoryUsedMB,
+      memoryTotalMB: nvidia.memoryTotalMB,
+      temperature: nvidia.temperature
+    }
+  }
+
+  // 3. 回退：仅返回型号名称
+  return {
+    name: gpuName,
+    utilizationPercent: null,
+    memoryUsedMB: null,
+    memoryTotalMB: null,
+    temperature: null
+  }
 })
 
 // --- App Lifecycle ---
