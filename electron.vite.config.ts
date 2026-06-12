@@ -33,7 +33,12 @@ function assetsPlugin(): Plugin {
               svg: 'image/svg+xml',
               mp3: 'audio/mpeg',
               ogg: 'audio/ogg',
-              wav: 'audio/wav'
+              opus: 'audio/opus',
+              wav: 'audio/wav',
+              aac: 'audio/aac',
+              m4a: 'audio/mp4',
+              flac: 'audio/flac',
+              webm: 'audio/webm'
             }
             const contentType = mimeMap[ext || ''] || 'application/octet-stream'
             res.writeHead(200, { 'Content-Type': contentType })
