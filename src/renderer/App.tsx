@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Toolbar } from './components/Toolbar'
-import { ScriptEditor } from './components/Editor'
-import { PreviewCanvas } from './components/Preview'
-import { TimelinePanel } from './components/Timeline'
+import { Workbench } from './components/Workbench'
 import { TemplateSettings } from './components/TemplateSettings'
+import { HelpPanel } from './components/HelpPanel/HelpPanel'
 import { useProjectStore } from './store/projectStore'
 import { usePreviewStore } from './store/previewStore'
 
@@ -58,13 +57,6 @@ function App(): JSX.Element {
     )
 
     cleanups.push(
-      window.electronAPI.onMenuEvent('menu:exportHtml', async () => {
-        const { content } = useProjectStore.getState()
-        await window.electronAPI.exportHtml(content)
-      })
-    )
-
-    cleanups.push(
       window.electronAPI.onMenuEvent('menu:runScript', () => {
         const { isRunning } = usePreviewStore.getState()
         const key = isRunning ? '__udseenStop' : '__udseenRun'
@@ -90,6 +82,32 @@ function App(): JSX.Element {
       })
     )
 
+    cleanups.push(
+      window.electronAPI.onMenuEvent('menu:openHelp', () => {
+        setCurrentView('help')
+      })
+    )
+
+    cleanups.push(
+      window.electronAPI.onMenuEvent('menu:toggleCropPreview', () => {
+        const { cropPreview, setCropPreview } = useProjectStore.getState()
+        setCropPreview(!cropPreview)
+      })
+    )
+
+    cleanups.push(
+      window.electronAPI.onMenuEvent('menu:toggleResourcePreview', () => {
+        const { resourcePreview, setResourcePreview } = useProjectStore.getState()
+        setResourcePreview(!resourcePreview)
+      })
+    )
+
+    cleanups.push(
+      window.electronAPI.onMenuEvent('menu:toggleEditMode', () => {
+        useProjectStore.getState().toggleEditMode()
+      })
+    )
+
     return () => cleanups.forEach((c) => c())
   }, [newFile, setContent, setFilePath, markClean, setCurrentView])
 
@@ -112,6 +130,12 @@ function App(): JSX.Element {
           }
         }
       }
+
+      // Ctrl+E: toggle edit mode
+      if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+        e.preventDefault()
+        useProjectStore.getState().toggleEditMode()
+      }
     }
 
     window.addEventListener('keydown', handleKeyDown)
@@ -125,7 +149,7 @@ function App(): JSX.Element {
         height: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        background: '#1e1e2e',
+        background: 'linear-gradient(135deg, #18182a 0%, #1e1e30 50%, #1a1a2c 100%)',
         color: '#cdd6f4',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         overflow: 'hidden'
@@ -133,6 +157,8 @@ function App(): JSX.Element {
     >
       {currentView === 'template-settings' ? (
         <TemplateSettings onBack={() => setCurrentView('editor')} />
+      ) : currentView === 'help' ? (
+        <HelpPanel onBack={() => setCurrentView('editor')} />
       ) : (
         <>
           {/* Toolbar — 全屏时隐藏 */}
@@ -140,54 +166,8 @@ function App(): JSX.Element {
             <Toolbar />
           </div>
 
-          {/* Main Content */}
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              overflow: 'hidden',
-              position: 'relative'
-            }}
-          >
-            {/* Left: Script Editor — 全屏时移除 DOM 以释放空间 */}
-            {!isFullscreen && (
-              <div
-                style={{
-                  flex: 1,
-                  minWidth: 400,
-                  borderRight: '1px solid #333'
-                }}
-              >
-                <ScriptEditor />
-              </div>
-            )}
-
-            {/* Right: Preview + Timeline — 全屏时扩展至全宽 */}
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                ...(isFullscreen
-                  ? { flex: 1 } // 全屏时填满整个主区域
-                  : {
-                      width: 480,
-                      borderLeft: '1px solid #333'
-                    })
-              }}
-            >
-              {/* Preview — 始终挂载，保证 PixiJS 不重置 */}
-              <div style={{ flex: 1, minHeight: 300 }}>
-                <PreviewCanvas isFullscreen={isFullscreen} />
-              </div>
-
-              {/* Timeline / Logs — 全屏时隐藏 */}
-              {!isFullscreen && (
-                <div style={{ height: 200, borderTop: '1px solid #333' }}>
-                  <TimelinePanel />
-                </div>
-              )}
-            </div>
-          </div>
+          {/* Main Content — 使用 Workbench 三面板布局 */}
+          <Workbench />
         </>
       )}
     </div>
