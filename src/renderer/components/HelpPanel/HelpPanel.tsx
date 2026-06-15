@@ -40,7 +40,7 @@ const SIMPLE_DOCS: DocCategory[] = [
           '角色图片要放在 assets/public/character/ 文件夹里。'
         ]
       },
-      {
+      { 
         id: 'first-text',
         title: '在画面上显示文字',
         content: [
