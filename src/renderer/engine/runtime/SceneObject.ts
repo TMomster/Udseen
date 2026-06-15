@@ -342,6 +342,24 @@ export class SceneObject {
     }
   }
 
+  /**
+   * fit: 智能缩放，自动将精灵缩放到填满舞台（1920x1080）
+   * 使用覆盖（cover）策略，确保无空白区域
+   */
+  fit(): void {
+    if (!this.sprite || !this.sprite.texture) return
+    const texW = this.sprite.texture.original.width
+    const texH = this.sprite.texture.original.height
+    const stageW = this.app.screen.width
+    const stageH = this.app.screen.height
+    const scaleX = stageW / texW
+    const scaleY = stageH / texH
+    const scale = Math.max(scaleX, scaleY) // cover: 填充满
+    this.scaleX = scale
+    this.scaleY = scale
+    this.sprite.scale.set(scale, scale)
+  }
+
   setIndex(val: number): void {
     this.zIndex = val
     if (this.sprite) {
