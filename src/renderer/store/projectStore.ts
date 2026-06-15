@@ -1,6 +1,8 @@
 import { create } from 'zustand'
+import { VIRTUAL_HEIGHT } from '../engine/render/PixiRenderer'
 
-type ViewMode = 'editor' | 'template-settings'
+type ViewMode = 'editor' | 'template-settings' | 'help'
+type EditMode = 'code' | 'visual'
 
 interface ProjectState {
   /** 当前文件路径 */
@@ -13,10 +15,28 @@ interface ProjectState {
   defaultContent: string
   /** 当前视图模式 */
   currentView: ViewMode
+  /** 编辑模式：代码或可视化 */
+  editMode: EditMode
   /** 当前执行的脚本行号（编辑器行高亮用），null 表示未执行 */
   executionLine: number | null
   /** 执行错误信息（非 null 表示执行到某行时出错） */
   executionError: string | null
+  /** 可视化编辑模式下行号→块ID映射（运行时追踪卡片高亮用） */
+  blockLineMap: Map<number, string> | null
+  /** 当前正在执行的可视块ID（卡片高亮用），null 表示无 */
+  executionBlockId: string | null
+  /** 镜头偏移（全屏模式下决定画面显示区域） */
+  cameraOffsetX: number
+  cameraOffsetY: number
+  /** 演出区域边界裁剪开关：开启时预览区域也应用镜头偏移，确保预览与全屏所见即所得 */
+  cropPreview: boolean
+  /** 全屏演出区域矩形高度（>0），默认 VIRTUAL_HEIGHT（1080），仅 cropPreview 开启时生效 */
+  cameraHeight: number
+  /** 坐标系校准偏移（不依赖 cropPreview，直接作用于坐标原点，用于校正全屏坐标） */
+  calibrationOffsetX: number
+  calibrationOffsetY: number
+  /** 资源预览开关：鼠标悬停于脚本中的资源路径时显示预览气泡 */
+  resourcePreview: boolean
 
   // Actions
   setFilePath: (path: string | null) => void
@@ -24,8 +44,17 @@ interface ProjectState {
   markClean: () => void
   newFile: () => void
   setCurrentView: (view: ViewMode) => void
+  setEditMode: (mode: EditMode) => void
+  toggleEditMode: () => void
   setExecutionLine: (line: number | null) => void
   setExecutionError: (error: string | null) => void
+  setBlockLineMap: (map: Map<number, string> | null) => void
+  setExecutionBlockId: (id: string | null) => void
+  setCameraOffset: (x: number, y: number) => void
+  setCropPreview: (crop: boolean) => void
+  setCameraHeight: (height: number) => void
+  setCalibrationOffset: (x: number, y: number) => void
+  setResourcePreview: (enabled: boolean) => void
 }
 
 const DEFAULT_CONTENT = 
@@ -40,8 +69,18 @@ export const useProjectStore = create<ProjectState>((set) => ({
   isDirty: false,
   defaultContent: DEFAULT_CONTENT,
   currentView: 'editor',
+  editMode: 'code',
   executionLine: null,
   executionError: null,
+  blockLineMap: null,
+  executionBlockId: null,
+  cameraOffsetX: 0,
+  cameraOffsetY: -60,
+  cropPreview: false,
+  cameraHeight: VIRTUAL_HEIGHT,
+  calibrationOffsetX: 0,
+  calibrationOffsetY: -55,
+  resourcePreview: true,
 
   setFilePath: (filePath) => set({ filePath }),
 
@@ -58,7 +97,33 @@ export const useProjectStore = create<ProjectState>((set) => ({
 
   setCurrentView: (currentView) => set({ currentView }),
 
+  setEditMode: (editMode) => set({ editMode }),
+
+  toggleEditMode: () => set((state) => ({ editMode: state.editMode === 'code' ? 'visual' : 'code' })),
+
   setExecutionLine: (executionLine) => set({ executionLine }),
 
-  setExecutionError: (executionError) => set({ executionError })
+  setExecutionError: (executionError) => set({ executionError }),
+
+  setBlockLineMap: (blockLineMap) => set({ blockLineMap }),
+
+  setExecutionBlockId: (executionBlockId) => set({ executionBlockId }),
+
+  setCameraOffset: (cameraOffsetX, cameraOffsetY) => set({ cameraOffsetX, cameraOffsetY }),
+
+  setCropPreview: (cropPreview) => set({ cropPreview }),
+
+  setCameraHeight: (cameraHeight) => set({ cameraHeight }),
+
+  setCalibrationOffset: (calibrationOffsetX, calibrationOffsetY) => set({ calibrationOffsetX, calibrationOffsetY }),
+
+  setResourcePreview: (resourcePreview) => set({ resourcePreview })
 }))
+
+/** 根据当前 store 状态同步更新窗口标题 */
+export function syncWindowTitle(): void {
+  const { filePath, isDirty } = useProjectStore.getState()
+  const name = filePath ? filePath.split(/[/\\]/).pop()! : '未命名脚本'
+  const dirty = isDirty ? ' *' : ''
+  document.title = `Udseen Editor - ${name}${dirty}`
+}
