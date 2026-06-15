@@ -30,6 +30,15 @@ interface PreviewState {
   dialogueVisible: boolean
   /** 自动播放模式 */
   autoMode: boolean
+  /** 自动播放计时配置 */
+  autoPlayConfig: {
+    /** 每3个字符多少毫秒（无音频时） */
+    charDelay: number
+    /** 最短延迟（ms） */
+    minDelay: number
+    /** 音频延时附加量（ms） */
+    audioExtraDelay: number
+  }
 
   // Actions
   setRunning: (running: boolean) => void
@@ -40,6 +49,7 @@ interface PreviewState {
   setDialogue: (dialogue: DialogueState | null) => void
   setDialogueVisible: (visible: boolean) => void
   setAutoMode: (auto: boolean) => void
+  setAutoPlayConfig: (config: Partial<PreviewState['autoPlayConfig']>) => void
 }
 
 export const usePreviewStore = create<PreviewState>((set) => ({
@@ -50,6 +60,11 @@ export const usePreviewStore = create<PreviewState>((set) => ({
   dialogue: null,
   dialogueVisible: true,
   autoMode: false,
+  autoPlayConfig: {
+    charDelay: 1000,
+    minDelay: 1000,
+    audioExtraDelay: 1000,
+  },
 
   setRunning: (isRunning) => set({ isRunning, currentChoices: null, dialogue: null, dialogueVisible: true }),
 
@@ -71,5 +86,7 @@ export const usePreviewStore = create<PreviewState>((set) => ({
 
   setDialogueVisible: (dialogueVisible) => set({ dialogueVisible }),
 
-  setAutoMode: (autoMode) => set({ autoMode })
+  setAutoMode: (autoMode) => set({ autoMode }),
+
+  setAutoPlayConfig: (config) => set((s) => ({ autoPlayConfig: { ...s.autoPlayConfig, ...config } })),
 }))
