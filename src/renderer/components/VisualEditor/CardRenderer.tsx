@@ -220,8 +220,8 @@ export function CardRenderer({ block, depth = 0, isChild = false, onContextMenu,
       case 'ShowDialog':
       case 'HideDialog':
       case 'MathRandom':
-      case 'ObjHide':
       case 'ObjEnd':
+      case 'Autobegin':
       case 'ObjLoop':
       case 'AnimPause':
       case 'AnimStop':
@@ -233,6 +233,12 @@ export function CardRenderer({ block, depth = 0, isChild = false, onContextMenu,
       case 'AudioFadeOut':
       case 'FilterApply':
       case 'BgBegin':
+      case 'BgFullScreen':
+      case 'BgFullWhite':
+      case 'TextBold':
+      case 'TextItalic':
+      case 'TextUline':
+      case 'TextDeline':
         return null
       case 'MathFloor':
       case 'MathCeil':
@@ -247,7 +253,7 @@ export function CardRenderer({ block, depth = 0, isChild = false, onContextMenu,
       case 'CreateCharacter':
         return <>{renderEditable(block.valuePorts[0]?.id ?? 'tag', 'tagName', '角色标识', block.data.tagName as string, 'char1')}{renderEditable(block.valuePorts[1]?.id ?? 'res', 'resourcePath', '资源路径', block.data.resourcePath as string, '图片路径...', true)}{renderEditable(block.valuePorts[2]?.id ?? 'name', 'displayName', '对话名称', block.data.displayName as string, '显示名')}{renderEditable(block.valuePorts[3]?.id ?? 'av', 'avatarPath', '头像路径', block.data.avatarPath as string, '可选头像...', true)}</>
       case 'ObjBegin':
-        return <>{renderEditable(block.valuePorts[0]?.id ?? 'mode', 'mode', '模式', block.data.mode as string, 'enter')}</>
+        return <>{renderEditable(block.valuePorts[0]?.id ?? 'visible', 'visible', '可见', block.data.visible as string, 'true')}</>
       case 'CreateBackground':
         return <>{renderEditable(block.valuePorts[0]?.id ?? 'tag', 'tagName', '标识', block.data.tagName as string, 'bg')}{renderEditable(block.valuePorts[1]?.id ?? 'res', 'resourcePath', '资源路径', block.data.resourcePath as string, '图片路径...', true)}</>
       case 'SequenceBlock':
