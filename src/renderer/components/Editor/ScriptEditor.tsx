@@ -44,12 +44,49 @@ export function ScriptEditor(): JSX.Element {
     // Register Udseen language
     monaco.languages.register({ id: 'udseen' })
 
-    // Enable comment toggling (Ctrl+/)
+    // Enable comment toggling (Ctrl+/) / auto-closing pairs / auto-indentation
     monaco.languages.setLanguageConfiguration('udseen', {
       comments: {
         lineComment: '//',
         blockComment: ['/*', '*/']
-      }
+      },
+      brackets: [
+        ['{', '}'],
+        ['[', ']'],
+        ['(', ')']
+      ],
+      autoClosingPairs: [
+        { open: '{', close: '}' },
+        { open: '[', close: ']' },
+        { open: '(', close: ')' },
+        { open: '"', close: '"', notIn: ['string'] },
+        { open: '\'', close: '\'', notIn: ['string'] }
+      ],
+      surroundingPairs: [
+        { open: '{', close: '}' },
+        { open: '[', close: ']' },
+        { open: '(', close: ')' },
+        { open: '"', close: '"' },
+        { open: '\'', close: '\'' }
+      ],
+      onEnterRules: [
+        {
+          // 在 {} 对之间按回车：缩进新行，同时右花括号不缩进
+          beforeText: /\{\s*$/,
+          afterText: /^\s*\}/,
+          action: { indentAction: monaco.languages.IndentAction.IndentOutdent }
+        },
+        {
+          // 在 { 后（无紧跟 }）按回车 → 缩进
+          beforeText: /\{\s*$/,
+          action: { indentAction: monaco.languages.IndentAction.Indent }
+        },
+        {
+          // 在 } 前按回车 → 减少缩进
+          beforeText: /^\s*\}/,
+          action: { indentAction: monaco.languages.IndentAction.Outdent }
+        }
+      ]
     })
 
     // Define tokenizer
@@ -656,6 +693,51 @@ export function ScriptEditor(): JSX.Element {
     }
   }, [executionLine, executionError]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 从 ResourceBrowser 拖入资源
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('application/udseen-resource')) {
+      e.preventDefault()
+      e.stopPropagation()
+      e.dataTransfer.dropEffect = 'copy'
+    }
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    const resourceData = e.dataTransfer.getData('application/udseen-resource')
+    if (!resourceData) return
+
+    const editor = editorRef.current
+    if (!editor) return
+
+    let resource: { path: string; type: string }
+    try {
+      resource = JSON.parse(resourceData)
+    } catch {
+      return
+    }
+
+    if (!resource.path) return
+
+    // 获取当前光标位置，退回到文档末尾
+    const position = editor.getPosition()
+    if (!position) return
+
+    // 插入带引号的路径字符串
+    const quotedPath = `"${resource.path}"`
+    const range = new monaco.Range(
+      position.lineNumber,
+      position.column,
+      position.lineNumber,
+      position.column
+    )
+
+    editor.executeEdits('resource-drop', [{ range, text: quotedPath }])
+    editor.focus()
+  }, [])
+
   // 右键菜单处理
   useEffect(() => {
     const container = containerRef.current
@@ -763,6 +845,8 @@ export function ScriptEditor(): JSX.Element {
     <div
       ref={containerRef}
       style={{ width: '100%', height: '100%' }}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
     >
       {contextMenu && (
         <ContextMenu
