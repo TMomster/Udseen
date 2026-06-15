@@ -22,6 +22,14 @@ export interface IRenderer {
   getScale(): number
   /** 显示/隐藏演出区域边界 */
   setBorderVisible(visible: boolean): void
+  /** 动态修改虚拟高度 */
+  setVirtualHeight(height: number): void
+  /**
+   * 全屏模式：contain 等比缩放 + margin:auto 居中（与 resize 完全一致）
+   * 确保全屏和预览模式下坐标计算方式完全统一。
+   * 调用时机：进入全屏或全屏 resize 时
+   */
+  resizeFullscreen(containerWidth: number, containerHeight: number): void
 }
 
 /**
@@ -29,8 +37,13 @@ export interface IRenderer {
  *
  * 虚拟舞台坐标系统：
  * - 舞台始终以 VIRTUAL_WIDTH × VIRTUAL_HEIGHT（1920×1080）的逻辑分辨率渲染
- * - Canvas 通过 CSS 等比缩放并居中适配实际容器尺寸
+ * - Canvas 通过 CSS 等比缩放（contain 模式）并 margin:auto 居中适配实际容器尺寸
  * - 所有脚本中的坐标值（x, y, move 等）都基于虚拟空间，在不同屏幕上效果一致
+ *
+ * 全屏模式：
+ * - 与预览模式完全相同的 contain 等比缩放 + margin:auto 居中
+ * - 两种模式下坐标计算方式完全一致（均匀缩放 scaleX = scaleY）
+ * - 使用 margin:auto 而非 CSS transform 居中，避免亚像素偏移
  */
 export class PixiRenderer implements IRenderer {
   private app: PIXI.Application | null = null
@@ -39,6 +52,11 @@ export class PixiRenderer implements IRenderer {
   private container: HTMLElement | null = null
   private _virtualWidth = VIRTUAL_WIDTH
   private _virtualHeight = VIRTUAL_HEIGHT
+  /** 当前是否处于全屏展示模式 */
+  private _isFullscreen = false
+  /** 坐标系校准偏移（虚拟空间像素），通过 CSS transform 平移 canvas 元素实现，不影响 PIXI 内部坐标 */
+  private _calibrationOffsetX = 0
+  private _calibrationOffsetY = 0
 
   async init(container: HTMLElement): Promise<void> {
     this.container = container
@@ -48,10 +66,10 @@ export class PixiRenderer implements IRenderer {
       height: this._virtualHeight,
       backgroundColor: 0x1a1a2e,
       antialias: true,
-      // 限制分辨率为 1，避免 Retina 屏幕下 GPU 显存翻 4 倍
-      // PixiJS 通过 autoDensity + CSS scale 仍可保持画面清晰度
-      resolution: 1,
-      autoDensity: true,
+      // resolution 上限 2x，避免 3x Retina 屏幕浪费 GPU 像素（性能与画质平衡点）
+      // autoDensity: false 表示我们完全控制 CSS 尺寸，PIXI 不会覆盖我们的 CSS 设置
+      resolution: Math.min(window.devicePixelRatio || 1, 2),
+      autoDensity: false,
       powerPreference: 'high-performance'
     })
 
@@ -64,9 +82,12 @@ export class PixiRenderer implements IRenderer {
 
     const canvas = this.app.view as HTMLCanvasElement
     canvas.style.position = 'absolute'
-    canvas.style.left = '50%'
-    canvas.style.top = '50%'
-    canvas.style.transform = 'translate(-50%, -50%)'
+    canvas.style.left = '0'
+    canvas.style.right = '0'
+    canvas.style.top = '0'
+    canvas.style.bottom = '0'
+    canvas.style.margin = 'auto'
+    canvas.style.transform = 'none'
     container.appendChild(canvas)
 
     // FPS cap for performance
@@ -112,6 +133,27 @@ export class PixiRenderer implements IRenderer {
     return Math.min(width / this._virtualWidth, height / this._virtualHeight)
   }
 
+  /** 设置坐标系校准偏移（虚拟空间像素），通过 CSS transform 平移 canvas 实现 */
+  setCalibrationOffset(x: number, y: number): void {
+    this._calibrationOffsetX = x
+    this._calibrationOffsetY = y
+    this._applyCalibrationTransform()
+  }
+
+  /** 将存储的校准偏移转换为 CSS 像素并应用到 canvas 的 CSS transform */
+  private _applyCalibrationTransform(): void {
+    if (!this.app) return
+    const canvas = this.app.view as HTMLCanvasElement
+    const scale = this.getScale()
+    const dx = Math.round(this._calibrationOffsetX * scale)
+    const dy = Math.round(this._calibrationOffsetY * scale)
+    if (dx === 0 && dy === 0) {
+      canvas.style.transform = 'none'
+    } else {
+      canvas.style.transform = `translate(${dx}px, ${dy}px)`
+    }
+  }
+
   setBackgroundColor(color: number): void {
     if (this.app) {
       this.app.renderer.background.color = color
@@ -119,16 +161,68 @@ export class PixiRenderer implements IRenderer {
   }
 
   /**
-   * 根据容器实际尺寸 CSS 等比缩放舞台 Canvas
-   * 不改变 PixiJS 内部渲染分辨率，仅调整 CSS 显示大小
+   * 根据容器实际尺寸 CSS 等比缩放舞台 Canvas（非全屏模式）
+   * 与 resizeFullscreen 使用完全相同的 contain 缩放 + margin:auto 居中，
+   * 确保两种模式下坐标计算方式完全一致。
    */
   resize(width: number, height: number): void {
     if (!this.app) return
+    this._isFullscreen = false
     const scale = Math.min(width / this._virtualWidth, height / this._virtualHeight)
     const canvas = this.app.view as HTMLCanvasElement
+    // 使用与 resizeFullscreen 完全相同的居中方式
+    canvas.style.left = '0'
+    canvas.style.right = '0'
+    canvas.style.top = '0'
+    canvas.style.bottom = '0'
+    canvas.style.margin = 'auto'
+    canvas.style.transform = 'none'
     canvas.style.width = `${Math.round(this._virtualWidth * scale)}px`
     canvas.style.height = `${Math.round(this._virtualHeight * scale)}px`
-    // 居中已由 CSS absolute + transform 保证
+    // resize 后重新应用校准偏移的 CSS transform（覆盖上面的 'none'）
+    this._applyCalibrationTransform()
+  }
+
+  /** 动态修改虚拟高度（内部分辨率 + 舞台 hitArea），用于演出区域裁切放大 */
+  setVirtualHeight(height: number): void {
+    if (!this.app) return
+    if (height === this._virtualHeight) return
+    this._virtualHeight = height
+    // 只修改内部渲染缓冲区尺寸（canvas 的 width/height 属性），
+    // CSS 尺寸由外层 resize/resizeFullscreen 独立控制，不受影响
+    this.app.renderer.resize(this._virtualWidth, height)
+    this.app.stage.hitArea = new PIXI.Rectangle(0, 0, this._virtualWidth, height)
+  }
+
+  /**
+   * 全屏模式 resize：与预览模式完全一致的 contain 等比缩放 + 居中，
+   * 确保两种模式下坐标计算方式完全统一。
+   *
+   * 关键设计：
+   * - 计算 scale = min(containerWidth/VIRTUAL_WIDTH, containerHeight/_virtualHeight)
+   * - CSS 尺寸 = Math.round(VIRTUAL_WIDTH × scale) × Math.round(_virtualHeight × scale)
+   * - 使用 margin: auto 实现像素级精确居中，避免 transform:translate 的亚像素偏移
+   *
+   * 这样全屏和预览的坐标映射完全一致：scaleX = scaleY（均匀缩放），
+   * handleMouseMove 中的 scale = canvasRect.width / VIRTUAL_WIDTH 对 X/Y 轴均成立。
+   */
+  resizeFullscreen(containerWidth: number, containerHeight: number): void {
+    if (!this.app) return
+    this._isFullscreen = true
+    const scale = Math.min(containerWidth / this._virtualWidth, containerHeight / this._virtualHeight)
+    const canvas = this.app.view as HTMLCanvasElement
+    // 使用 margin:auto 居中（left/right/top/bottom=0 使浏览器自动计算精确像素偏移）
+    // 比 transform: translate(-50%, -50%) 更可靠，没有亚像素问题
+    canvas.style.left = '0'
+    canvas.style.right = '0'
+    canvas.style.top = '0'
+    canvas.style.bottom = '0'
+    canvas.style.margin = 'auto'
+    canvas.style.transform = 'none'
+    canvas.style.width = `${Math.round(this._virtualWidth * scale)}px`
+    canvas.style.height = `${Math.round(this._virtualHeight * scale)}px`
+    // resizeFullscreen 后重新应用校准偏移的 CSS transform（覆盖上面的 'none'）
+    this._applyCalibrationTransform()
   }
 
   /** 显示/隐藏演出区域边界（非全屏编辑时帮助用户确认组件位置） */
