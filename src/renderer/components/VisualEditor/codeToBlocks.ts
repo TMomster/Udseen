@@ -147,7 +147,9 @@ function inferType(text: string): string {
   // === 新增对象方法调用模式（在 ObjectMethodCall 通用匹配之前）===
   if (/^\w+\.say\s*\(/.test(text)) return 'ObjSay'
   if (/^\w+\.begin\s*\(/.test(text)) return 'ObjBegin'
-  if (/^\w+\.hide\s*\(/.test(text)) return 'ObjHide'
+  if (/^\w+\.visible\s*\(/.test(text)) return 'ObjVisible'
+  if (/^\w+\.autobegin\s*\(/.test(text)) return 'Autobegin'
+  if (/^\w+\.hide\s*\(/.test(text)) return 'ObjVisible'
   if (/^\w+\.end\s*\(/.test(text)) return 'ObjEnd'
   if (/^\w+\.setPos\s*\(/.test(text)) return 'SetPos'
   if (/^\w+\.move\s*\(/.test(text)) return 'MoveBy'
@@ -164,6 +166,9 @@ function inferType(text: string): string {
   if (/^\w+\.brightness\s*\(/.test(text)) return 'Brightness'
   if (/^\w+\.contrast\s*\(/.test(text)) return 'Contrast'
   if (/^\w+\.saturation\s*\(/.test(text)) return 'Saturation'
+  if (/^\w+\.bw\s*\(/.test(text)) return 'Bw'
+  if (/^\w+\.distort\s*\(/.test(text)) return 'Distort'
+  if (/^\w+\.psychedelic\s*\(/.test(text)) return 'Psychedelic'
   if (/^\w+\.rgb\s*\(/.test(text)) return 'RgbFilter'
   if (/^\w+\.clearFilters\s*\(/.test(text)) return 'ClearFilters'
   if (/^\w+\.volume\s*\(/.test(text)) return 'SetVolume'
@@ -174,8 +179,20 @@ function inferType(text: string): string {
   if (/^\w+\s*=\s*Filter\.set\s*\(/.test(text)) return 'CreateFilter'
   if (/^\w+\s*=\s*Background\.set\s*\(/.test(text)) return 'CreateBackground'
   if (/^let\s+\w+\s*=\s*Background\.set\s*\(/.test(text)) return 'CreateBackground'
+  if (/^Background\.full_screen\s*\(/.test(text)) return 'BgFullScreen'
+  if (/^Background\.full_white\s*\(/.test(text)) return 'BgFullWhite'
   if (/^say\s*\(/.test(text)) return 'Say'
   if (/^speech\s*\(/.test(text)) return 'Say'
+  // === Text 对象方法 ===
+  if (/^\w+\.size\s*\(/.test(text)) return 'TextSize'
+  if (/^\w+\.px\s*\(/.test(text)) return 'TextSize'
+  if (/^\w+\.bold\s*\(/.test(text)) return 'TextBold'
+  if (/^\w+\.italic\s*\(/.test(text)) return 'TextItalic'
+  if (/^\w+\.uline\s*\(/.test(text)) return 'TextUline'
+  if (/^\w+\.deline\s*\(/.test(text)) return 'TextDeline'
+  // Text.set 创建文本
+  if (/^let\s+\w+\s*=\s*Text\.set\s*\(/.test(text)) return 'CreateText'
+  if (/^\w+\s*=\s*Text\.set\s*\(/.test(text)) return 'CreateText'
   if (/^\w+\.\w+\s*\(/.test(text)) return 'ObjectMethodCall'
   if (/^parallel/.test(text)) return 'AsyncBlock'
   if (/^case\s+/.test(text)) return 'CaseStatement'
@@ -368,6 +385,59 @@ function parseBlockData(type: string, text: string): Record<string, unknown> {
       }
       break
     }
+    // === 文本创建 & 全屏背景 ===
+    case 'CreateText': {
+      // [let] tagName = Text.set("content", "tagName")
+      const m = text.match(/^(?:let\s+)?(\w+)\s*=\s*Text\.set\s*\(\s*"([^"]*)"\s*(?:,\s*"([^"]*)")?\s*\)/)
+      if (m) {
+        data.text = m[2]
+        data.tagName = m[3] || m[1]
+      } else {
+        const fm = text.match(/^(?:let\s+)?(\w+)\s*=\s*Text\.set\s*\(\s*([^)]+)\s*\)/)
+        if (fm) {
+          const parts = fm[2].split(',').map(s => s.trim().replace(/"/g, ''))
+          data.text = parts[0] || ''
+          data.tagName = parts[1] || fm[1]
+        }
+      }
+      break
+    }
+    case 'BgFullScreen': {
+      const m = text.match(/Background\.full_screen\s*\(/)
+      if (m) { /* no data needed */ }
+      break
+    }
+    case 'BgFullWhite': {
+      const m = text.match(/Background\.full_white\s*\(/)
+      if (m) { /* no data needed */ }
+      break
+    }
+    // === 文本属性方法 ===
+    case 'TextSize': {
+      const m = text.match(/^(\w+)\.(?:size|px)\s*\(\s*([^)]+)\s*\)/)
+      if (m) { data.target = m[1]; data.val = m[2].trim() }
+      break
+    }
+    case 'TextBold': {
+      const m = text.match(/^(\w+)\.bold\s*\(/)
+      if (m) data.target = m[1]
+      break
+    }
+    case 'TextItalic': {
+      const m = text.match(/^(\w+)\.italic\s*\(/)
+      if (m) data.target = m[1]
+      break
+    }
+    case 'TextUline': {
+      const m = text.match(/^(\w+)\.uline\s*\(/)
+      if (m) data.target = m[1]
+      break
+    }
+    case 'TextDeline': {
+      const m = text.match(/^(\w+)\.deline\s*\(/)
+      if (m) data.target = m[1]
+      break
+    }
     // === 新增卡片块解析模式 ===
     case 'ObjSay': {
       const m = text.match(/^(\w+)\.say\s*\(\s*"([^"]*)"\s*(?:,\s*"([^"]*)")?\s*\)/)
@@ -376,12 +446,25 @@ function parseBlockData(type: string, text: string): Record<string, unknown> {
     }
     case 'ObjBegin': {
       const m = text.match(/^(\w+)\.begin\s*\(\s*(\w+)?\s*\)/)
-      if (m) { data.target = m[1]; data.mode = m[2] || '' }
+      if (m) { data.target = m[1]; data.visible = m[2] || 'true' }
       break
     }
-    case 'ObjHide': {
-      const m = text.match(/^(\w+)\.hide\s*\(/)
-      if (m) data.target = m[1]
+    case 'ObjVisible': {
+      // obj.visible(able, time?) or old obj.hide()
+      const m = text.match(/^(\w+)\.visible\s*\(\s*(\w+)\s*(?:,\s*(\d+))?\s*\)/)
+      if (m) {
+        data.target = m[1]
+        data.able = m[2]
+        if (m[3]) data.time = m[3]
+      } else {
+        const hideMatch = text.match(/^(\w+)\.hide\s*\(/)
+        if (hideMatch) { data.target = hideMatch[1]; data.able = 'false'; data.time = '' }
+      }
+      break
+    }
+    case 'Autobegin': {
+      const m = text.match(/^(\w+)\.autobegin\s*\(\s*(\w+)?\s*\)/)
+      if (m) { data.target = m[1]; data.visible = m[2] || 'true' }
       break
     }
     case 'ObjEnd': {
@@ -405,6 +488,34 @@ function parseBlockData(type: string, text: string): Record<string, unknown> {
       const method = methodMap[type] || type.toLowerCase()
       const m = text.match(new RegExp(`^(\\w+)\\.${method}\\s*\\(\\s*([^,]+)\\s*(?:,\\s*([^)]+))?\\s*\\)`))
       if (m) { data.target = m[1]; data.val = m[2].trim(); if (m[3]) data.time = m[3].trim() }
+      break
+    }
+    case 'Bw': {
+      // .bw(val, time?, intensity?)
+      const m = text.match(/^(\w+)\.bw\s*\(\s*([^,]+)\s*(?:,\s*([^,]+))?\s*(?:,\s*([^)]+))?\s*\)/)
+      if (m) {
+        data.target = m[1]; data.val = m[2].trim()
+        if (m[3]) data.time = m[3].trim()
+        if (m[4]) data.intensity = m[4].trim()
+      }
+      break
+    }
+    case 'Distort': {
+      const m = text.match(/^(\w+)\.distort\s*\(\s*([^,]+)\s*(?:,\s*([^,]+))?\s*(?:,\s*([^)]+))?\s*\)/)
+      if (m) {
+        data.target = m[1]; data.val = m[2].trim()
+        if (m[3]) data.time = m[3].trim()
+        if (m[4]) data.intensity = m[4].trim()
+      }
+      break
+    }
+    case 'Psychedelic': {
+      const m = text.match(/^(\w+)\.psychedelic\s*\(\s*([^,]+)\s*(?:,\s*([^,]+))?\s*(?:,\s*([^)]+))?\s*\)/)
+      if (m) {
+        data.target = m[1]; data.val = m[2].trim()
+        if (m[3]) data.time = m[3].trim()
+        if (m[4]) data.intensity = m[4].trim()
+      }
       break
     }
     case 'RotateBy': {
@@ -679,9 +790,11 @@ const ACTION_TYPES_WITH_TARGET = new Set([
   'SetPos', 'MoveBy', 'Alpha', 'Scale', 'RotateBy', 'SetLayer', 'SetTint',
   'ObjLoop', 'AnimPause', 'AnimStop', 'SetSpeed',
   'Blur', 'Brightness', 'Contrast', 'Saturation', 'RgbFilter', 'ClearFilters',
-  'ObjSay', 'ObjBegin', 'ObjHide', 'ObjEnd', 'BgBegin',
+  'Bw', 'Distort', 'Psychedelic',
+  'ObjSay', 'ObjBegin', 'ObjVisible', 'Autobegin', 'ObjEnd', 'BgBegin',
   'AudioPlay', 'AudioLoop', 'AudioPause', 'AudioStop', 'SetVolume', 'AudioFadeOut',
-  'FilterApply', 'ObjectMethodCall'
+  'FilterApply', 'ObjectMethodCall',
+  'TextSize', 'TextBold', 'TextItalic', 'TextUline', 'TextDeline'
 ])
 
 function getBlockLabel(type: string): string {
@@ -702,6 +815,7 @@ function getBlockLabel(type: string): string {
     'ObjectFunctionDef': '对象函数定义',
     'CreateCharacter': '创建角色',
     'CreateBackground': '设置背景',
+    'CreateText': '创建文本',
     'Pause': '暂停等待',
     'SequenceBlock': '顺序执行',
     'ShowDialog': '显示对话框',
@@ -719,9 +833,12 @@ function getBlockLabel(type: string): string {
     'Unknown': '代码块',
     'ObjSay': '角色说话',
     'ObjBegin': '登场',
-    'ObjHide': '退场',
+    'ObjVisible': '可见性',
+    'Autobegin': '自动登场',
     'ObjEnd': '销毁',
     'BgBegin': '显示背景',
+    'BgFullScreen': '全屏黑色',
+    'BgFullWhite': '全屏白色',
     'SetPos': '移动坐标',
     'MoveBy': '相对移动',
     'Alpha': '透明度',
@@ -737,9 +854,17 @@ function getBlockLabel(type: string): string {
     'Brightness': '明度',
     'Contrast': '对比度',
     'Saturation': '饱和度',
+    'Bw': '黑白',
+    'Distort': '失真',
+    'Psychedelic': '迷幻',
     'RgbFilter': 'RGB颜色',
     'ClearFilters': '清除滤镜',
     'CreateAudio': '创建音频',
+    'TextSize': '字号',
+    'TextBold': '加粗',
+    'TextItalic': '斜体',
+    'TextUline': '下划线',
+    'TextDeline': '删除线',
     'AudioPlay': '播放',
     'AudioLoop': '循环播放',
     'AudioPause': '暂停',
@@ -836,7 +961,6 @@ function buildValuePorts(type: string, data: Record<string, unknown>): BlockPort
       ports.push({ id: genId(), align: 'right', kind: 'value', label: '对象', acceptType: 'any' })
       ports.push({ id: genId(), align: 'right', kind: 'value', label: '模式', acceptType: 'any' })
       break
-    case 'ObjHide':
     case 'ObjEnd':
     case 'ObjLoop':
     case 'AnimPause':
@@ -899,6 +1023,24 @@ function buildValuePorts(type: string, data: Record<string, unknown>): BlockPort
     case 'FilterApply':
       ports.push({ id: genId(), align: 'right', kind: 'value', label: '对象', acceptType: 'any' })
       break
+    // === 新增类型端口 ===
+    case 'Autobegin':
+      ports.push({ id: genId(), align: 'right', kind: 'value', label: '对象', acceptType: 'any' })
+      ports.push({ id: genId(), align: 'right', kind: 'value', label: '可见(可选)', acceptType: 'boolean' })
+      break
+    case 'ObjVisible':
+      ports.push({ id: genId(), align: 'right', kind: 'value', label: '对象', acceptType: 'any' })
+      ports.push({ id: genId(), align: 'right', kind: 'value', label: '可见', acceptType: 'boolean' })
+      ports.push({ id: genId(), align: 'right', kind: 'value', label: '时间(可选)', acceptType: 'number' })
+      break
+    case 'Bw':
+    case 'Distort':
+    case 'Psychedelic':
+      ports.push({ id: genId(), align: 'right', kind: 'value', label: '对象', acceptType: 'any' })
+      ports.push({ id: genId(), align: 'right', kind: 'value', label: '强度', acceptType: 'number' })
+      ports.push({ id: genId(), align: 'right', kind: 'value', label: '时间(可选)', acceptType: 'number' })
+      ports.push({ id: genId(), align: 'right', kind: 'value', label: '透明度', acceptType: 'number' })
+      break
     case 'SetVolume':
       ports.push({ id: genId(), align: 'right', kind: 'value', label: '对象', acceptType: 'any' })
       ports.push({ id: genId(), align: 'right', kind: 'value', label: '音量', acceptType: 'number' })
@@ -906,6 +1048,24 @@ function buildValuePorts(type: string, data: Record<string, unknown>): BlockPort
       break
     case 'CreateFilter':
       ports.push({ id: genId(), align: 'right', kind: 'value', label: '标识', acceptType: 'any' })
+      break
+    case 'CreateText':
+      ports.push({ id: genId(), align: 'right', kind: 'value', label: '文本内容', acceptType: 'string' })
+      ports.push({ id: genId(), align: 'right', kind: 'value', label: '标识', acceptType: 'any' })
+      break
+    case 'BgFullScreen':
+    case 'BgFullWhite':
+      // 无端口，纯动作块
+      break
+    case 'TextSize':
+      ports.push({ id: genId(), align: 'right', kind: 'value', label: '对象', acceptType: 'any' })
+      ports.push({ id: genId(), align: 'right', kind: 'value', label: '字号', acceptType: 'number' })
+      break
+    case 'TextBold':
+    case 'TextItalic':
+    case 'TextUline':
+    case 'TextDeline':
+      ports.push({ id: genId(), align: 'right', kind: 'value', label: '对象', acceptType: 'any' })
       break
     case 'CaseStatement':
       break
@@ -925,9 +1085,14 @@ function buildValuePorts(type: string, data: Record<string, unknown>): BlockPort
  * 如 time→0（默认时间）、val→100（滤镜强度）等
  */
 function fillDefaultArgs(type: string, data: Record<string, unknown>): void {
-  // 滤镜强度默认 100
+  // 滤镜强度默认 1
   if (['Blur', 'Brightness', 'Contrast', 'Saturation'].includes(type)) {
-    if (data.val === undefined || data.val === '') data.val = '100'
+    if (data.val === undefined || data.val === '') data.val = '1'
+  }
+  // 新滤镜默认强度 1
+  if (['Bw', 'Distort', 'Psychedelic'].includes(type)) {
+    if (data.val === undefined || data.val === '') data.val = '1'
+    if (data.intensity === undefined || data.intensity === '') data.intensity = '1'
   }
   // SetSpeed 默认 1.0
   if (type === 'SetSpeed') {
@@ -940,6 +1105,18 @@ function fillDefaultArgs(type: string, data: Record<string, unknown>): void {
   // Scale 默认 1.0
   if (type === 'Scale') {
     if (data.val === undefined || data.val === '') data.val = '1.0'
+  }
+  // ObjVisible able 默认 true
+  if (type === 'ObjVisible') {
+    if (data.able === undefined || data.able === '') data.able = 'true'
+  }
+  // Autobegin visible 默认 true
+  if (type === 'Autobegin') {
+    if (data.visible === undefined || data.visible === '') data.visible = 'true'
+  }
+  // TextSize 默认 32
+  if (type === 'TextSize') {
+    if (data.val === undefined || data.val === '') data.val = '32'
   }
 }
 
