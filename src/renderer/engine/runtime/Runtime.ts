@@ -27,12 +27,16 @@ import type {
   WaitNode
 } from '../parser/index'
 import { SceneObject, RuntimeMap } from './SceneObject'
-import { FilterObject, isFilterObject } from './FilterObject'
+import { FilterObject } from './FilterObject'
 import { AnimationQueue } from './AnimationQueue'
 import { registerBuiltins, showChoice } from './builtins'
+import { SymbolTable } from './SymbolTable'
+import { AudioManager, type AudioCallContext } from './AudioManager'
+import { AssetResolver } from './AssetResolver'
+import { ObjectMethodDispatcher } from './ObjectMethodDispatcher'
 import * as PIXI from 'pixi.js'
-// 静态导入 Howl，避免每次音频调用都动态 import 增加内存引用和异步延迟
-import { Howl } from 'howler'
+
+
 
 /**
  * 运行时值类型
@@ -57,6 +61,10 @@ export type RuntimeValue =
 export interface AudioObject {
   type: 'audio'
   id: string
+  /** 脚本中的变量名（标识符），如 bgm9 */
+  scriptId: string
+  /** 显示名称（由 set 的第二个参数传入） */
+  displayName: string
   filePath: string
   howl: unknown  // Howl instance
   looping: boolean
@@ -86,56 +94,19 @@ interface FactoryObject {
 }
 
 /**
- * 符号表
- */
-class SymbolTable {
-  private parent: SymbolTable | null = null
-  private vars: Map<string, RuntimeValue> = new Map()
-
-  constructor(parent?: SymbolTable) {
-    if (parent) this.parent = parent
-  }
-
-  set(name: string, value: RuntimeValue): void {
-    // Try to update in current or ancestor scope
-    let scope: SymbolTable | null = this
-    while (scope) {
-      if (scope.vars.has(name)) {
-        scope.vars.set(name, value)
-        return
-      }
-      scope = scope.parent
-    }
-    // Not found in any scope, set in current
-    this.vars.set(name, value)
-  }
-
-  declare(name: string, value: RuntimeValue): void {
-    this.vars.set(name, value)
-  }
-
-  get(name: string): RuntimeValue | undefined {
-    let scope: SymbolTable | null = this
-    while (scope) {
-      if (scope.vars.has(name)) return scope.vars.get(name)
-      scope = scope.parent
-    }
-    return undefined
-  }
-
-  has(name: string): boolean {
-    return this.get(name) !== undefined
-  }
-
-  createChild(): SymbolTable {
-    return new SymbolTable(this)
-  }
-}
-
-/**
- * Runtime - 全局解释器
+ * Runtime - 全局解释器（精简为调度器角色）
+ *
+ * 第三期重构拆分：
+ * - AudioManager: 音频生命周期管理
+ * - AssetResolver: 资源路径解析
+ * - ObjectMethodDispatcher: 方法分发表（O(1) 查找）
+ * - SymbolTable: 独立符号表类
  */
 export class Runtime {
+  /** 组合的新模块 */
+  readonly audioManager = new AudioManager()
+  readonly assetResolver = new AssetResolver()
+  readonly methodDispatcher = new ObjectMethodDispatcher()
   private symbolTable!: SymbolTable
   private objectFunctions: Map<string, ObjectFunctionDefNode> = new Map()
   private sceneObjects: Map<string, SceneObject> = new Map()
@@ -167,7 +138,7 @@ export class Runtime {
   onChoice?: (choices: { text: string; action: () => void | Promise<void> }[]) => void
   onStateChange?: (running: boolean) => void
   /** 对话回调 - 显示对话文本，返回 Promise 在用户点击后 resolve */
-  onDialogue?: (speaker: string | null, text: string, avator?: string) => Promise<void>
+  onDialogue?: (speaker: string | null, text: string, avator?: string, audioDurationMs?: number) => Promise<void>
   /** 警告回调 - 用于在日志区域显示黄色警告 */
   onWarning?: (msg: string) => void
   /** 对话框显隐回调 - speech(0) 隐藏, speech(1) 重新显示 */
@@ -181,6 +152,10 @@ export class Runtime {
 
   /** 全局 pause() 的点击 resolve 函数 */
   userClickResolve: (() => void) | null = null
+  /** 跳过模式：按住 Ctrl 时启用，忽略等待快速执行 */
+  skipMode: boolean = false
+  /** speech 禁用模式：speech(0) 后启用，后续 say 不显示对话框，直到 speech(1) 恢复 */
+  speechDisabled: boolean = false
 
   constructor(app: PIXI.Application, sceneContainer: PIXI.Container) {
     this.app = app
@@ -200,11 +175,12 @@ export class Runtime {
     // 注册内建函数（Math、say、parallel、sequence 等）
     registerBuiltins(this)
 
-    // 注册工厂对象（Audio/Voice/BGM 统一合并为 Audio）
+    // 注册工厂对象
     this.symbolTable.declare('Character', { type: 'factory', name: 'Character' })
     this.symbolTable.declare('Background', { type: 'factory', name: 'Background' })
     this.symbolTable.declare('Audio', { type: 'factory', name: 'Audio' })
     this.symbolTable.declare('Filter', { type: 'factory', name: 'Filter' })
+    this.symbolTable.declare('Text', { type: 'factory', name: 'Text' })
   }
 
   getApp(): PIXI.Application {
@@ -243,8 +219,49 @@ export class Runtime {
     return this.symbolTable
   }
 
+  getObjectFunction(key: string): ObjectFunctionDefNode | undefined {
+    return this.objectFunctions.get(key)
+  }
+
+  getMethodAlias(key: string): string | undefined {
+    return this.methodAliases.get(key)
+  }
+
+  getLastExecutionLine(): number {
+    return this.lastExecutionLine
+  }
+
+  getAudioManager(): AudioManager {
+    return this.audioManager
+  }
+
+  getAssetResolver(): AssetResolver {
+    return this.assetResolver
+  }
+
   registerObjectFunction(name: string, def: ObjectFunctionDefNode): void {
     this.objectFunctions.set(name, def)
+  }
+
+  /**
+   * 执行对象函数体（由 ObjectMethodDispatcher.callObjectFunction 委托调用）
+   */
+  async executeObjectFunctionBlock(
+    def: ObjectFunctionDefNode,
+    obj: SceneObject,
+    args: RuntimeValue[],
+    scope: SymbolTable
+  ): Promise<void> {
+    const funcScope = new SymbolTable()
+    let argIdx = 0
+    for (let i = 0; i < def.params.length; i++) {
+      if (def.params[i] === 'obj') continue
+      const autoZero = def.autoZeroParams && def.autoZeroParams[i]
+      funcScope.declare(def.params[i], args[argIdx] ?? (autoZero ? 0 : null))
+      argIdx++
+    }
+    funcScope.declare('obj', obj)
+    await this.executeBlock(def.block, funcScope)
   }
 
   /**
@@ -307,8 +324,9 @@ export class Runtime {
     // 旧 AnimationQueue 成为孤儿，旧执行链即便放行后也不会影响新队列
     this.animQueue = new AnimationQueue()
 
-    // 2. 清理所有音频（stop + unload，释放音频缓冲）
-    this.cleanupAllAudio()
+    // 2. 清理所有音频（通过 AudioManager 释放 Howl 音频缓冲 + 取消 rAF）
+    this.audioManager.cleanupAllAudio(this.audioObjects)
+    this.audioManager.cancelAnimFrameIds()
 
     // 3. 销毁所有 SceneObject（释放 sprite 纹理 + GPU 滤镜资源）
     const objs = Array.from(this.sceneObjects.values())
@@ -343,25 +361,10 @@ export class Runtime {
     this.typeAliases.clear()
     this.typeAliasReverse.clear()
     this.methodAliases.clear()
-  }
 
-  /**
-   * 遍历所有已注册的音频对象，调用 stop + unload 释放 Howl 音频缓冲
-   */
-  private cleanupAllAudio(): void {
-    const audios = Array.from(this.audioObjects.values())
-    for (const audio of audios) {
-      if (audio.howl) {
-        try {
-          (audio.howl as Howl).stop()
-          ;(audio.howl as Howl).unload()
-        } catch {
-          // 忽略单个音频的清理异常，确保继续清理其他音频
-        }
-        audio.howl = null
-      }
-    }
-    this.audioObjects.clear()
+    // 9. 重置运行时状态标记（防止旧执行残留影响新执行）
+    this.speechDisabled = false
+    this.skipMode = false
   }
 
   /**
@@ -384,6 +387,47 @@ export class Runtime {
 
   isRunning(): boolean {
     return this.running
+  }
+
+  /** 获取当前活跃资源信息（用于调试面板），返回脚本中的变量名（标识符） */
+  getResourceInfo(): { sceneObjects: string[]; audioObjects: string[]; filterObjects: string[] } {
+    return {
+      sceneObjects: Array.from(this.sceneObjects.values()).map(obj => obj.scriptId || obj.displayName || obj.id),
+      audioObjects: Array.from(this.audioObjects.values()).map(obj => obj.scriptId || obj.displayName || obj.id),
+      filterObjects: Array.from(this.filterObjects.keys()),
+    }
+  }
+
+  /**
+   * 创建纯色背景（如全屏黑/全屏白）
+   * 生成一个覆盖全屏的纯色精灵，zIndex 设为极高值确保在最顶层
+   */
+  private createSolidBackground(id: string, color: number, name: string): SceneObject {
+    const objId = this.assetResolver.generateObjectId()
+    const sceneObj = new SceneObject(objId, this.app, this.sceneContainer)
+    sceneObj.objectType = 'Background'
+    sceneObj.scriptId = ''
+    sceneObj.displayName = name
+
+    const width = this.app.screen.width
+    const height = this.app.screen.height
+    const graphics = new PIXI.Graphics()
+    graphics.beginFill(color)
+    graphics.drawRect(0, 0, width, height)
+    graphics.endFill()
+    const texture = this.app.renderer.generateTexture(graphics)
+    graphics.destroy()
+    const sprite = new PIXI.Sprite(texture)
+    sprite.x = width / 2
+    sprite.y = height / 2
+    sprite.zIndex = 10000  // 极高层级，确保覆盖所有其他元素
+    sprite.visible = false
+
+    sceneObj.sprite = sprite
+    sceneObj.filterController.applyFilters()
+    this.registerSceneObject(objId, sceneObj)
+    this.log(`定义${name}背景 ${objId}`)
+    return sceneObj
   }
 
   // ---- Internal Execution ----
@@ -463,6 +507,10 @@ export class Runtime {
   private async execWaitStatement(stmt: WaitNode, scope: SymbolTable): Promise<void> {
     const timeVal = await this.evaluate(stmt.time, scope)
     const ms = typeof timeVal === 'number' ? timeVal : 0
+    if (this.skipMode) {
+      // 跳过模式：不等待，直接执行
+      return await this.executeStatement(stmt.statement, scope)
+    }
     await new Promise((resolve) => setTimeout(resolve, ms))
     return await this.executeStatement(stmt.statement, scope)
   }
@@ -512,6 +560,12 @@ export class Runtime {
 
   private async execVariableDecl(stmt: VariableDeclNode, scope: SymbolTable): Promise<void> {
     const value = await this.evaluate(stmt.value, scope)
+    // 如果值是 SceneObject/AudioObject，标记其脚本标识符
+    if (isSceneObjectValue(value)) {
+      value.scriptId = stmt.name
+    } else if (isAudioObject(value)) {
+      value.scriptId = stmt.name
+    }
     // Type checking for typed variables
     if (stmt.varType) {
       const actualType = this.valueTypeName(value)
@@ -584,6 +638,12 @@ export class Runtime {
       }
     } else {
       scope.set(stmt.name, value)
+      // 如果值是 SceneObject/AudioObject，标记其脚本标识符
+      if (isSceneObjectValue(value)) {
+        value.scriptId = stmt.name
+      } else if (isAudioObject(value)) {
+        value.scriptId = stmt.name
+      }
       this.log(`赋值 ${stmt.name} = ${formatValue(value)}`)
     }
   }
@@ -624,12 +684,12 @@ export class Runtime {
 
     if (methodName === 'set') {
       if (typeof args[0] !== 'string') throw new Error('set() 需要一个路径参数')
-      const objId = this.resolveObjectId(objExpr)
-      const factoryName = this.resolveFactoryName(objExpr)
+      const objId = this.assetResolver.resolveObjectId(objExpr)
+      const factoryName = this.assetResolver.resolveFactoryName(objExpr, this)
 
       // Resolve asset path
       const rawPath = args[0] as string
-      const resolvedPath = this.resolveAssetPath(rawPath, factoryName)
+      const resolvedPath = this.assetResolver.resolveAssetPath(rawPath, factoryName)
 
       // Extract display name (second arg to set: set(path, name))
       const displayName = args.length >= 2 && typeof args[1] === 'string'
@@ -641,6 +701,8 @@ export class Runtime {
         const audioObj: AudioObject = {
           type: 'audio',
           id: objId,
+          scriptId: objId,
+          displayName,
           filePath: resolvedPath,
           howl: null,
           looping: false,
@@ -651,19 +713,40 @@ export class Runtime {
         scope.declare(objId, audioObj)
         this.registerAudioObject(objId, audioObj)
         this.log(`定义音频 ${objId} (${resolvedPath})`)
+        // Audio.set 时做格式预检（仅警告，不阻止创建）
+        if (!this.audioManager.isAudioFormatSupported(resolvedPath)) {
+          this.onWarning?.(`不支持的音频格式: ${resolvedPath}（支持的格式: mp3, ogg, opus, wav, aac, m4a, flac, webm）`)
+        }
+        return
+      }
+
+      // Text factory: set(text) 创建文本对象
+      if (factoryName === 'Text') {
+        const textObjId = this.assetResolver.generateObjectId()
+        const textContent = String(args[0] ?? '')
+        const sceneObj = new SceneObject(textObjId, this.app, this.sceneContainer)
+        sceneObj.objectType = 'Text'
+        sceneObj.scriptId = textObjId
+        sceneObj.displayName = displayName
+        sceneObj.setText(textContent)
+        sceneObj.zIndex = 999
+        this.registerSceneObject(textObjId, sceneObj)
+        scope.declare(textObjId, sceneObj)
+        this.log(`定义文本 ${textObjId}: "${textContent}"`)
         return
       }
 
       // Create a SceneObject
       const sceneObj = new SceneObject(objId, this.app, this.sceneContainer)
       if (factoryName) sceneObj.objectType = factoryName
+      sceneObj.scriptId = objId
       sceneObj.displayName = displayName
 
       // Extract avator (third arg to set: set(path, name, avator))
       if (args.length >= 3 && typeof args[2] === 'string') {
         const avatorPath = args[2] as string
         if (avatorPath && factoryName === 'Character') {
-          const resolvedAvatorPath = this.resolveAssetPath(avatorPath, factoryName)
+          const resolvedAvatorPath = this.assetResolver.resolveAssetPath(avatorPath, factoryName)
           sceneObj.avatorPath = resolvedAvatorPath
         }
       }
@@ -672,7 +755,7 @@ export class Runtime {
 
       // 异步验证头像路径
       if (sceneObj.avatorPath) {
-        this.validateAvatorPath(sceneObj, displayName)
+        this.assetResolver.validateAvatorPath(sceneObj, displayName, this.onWarning)
       }
 
       this.registerSceneObject(objId, sceneObj)
@@ -680,313 +763,46 @@ export class Runtime {
       return
     }
 
-    // Delegate to shared method dispatch
-    await this.callObjectMethod(objValue, methodName, args, scope)
-  }
-
-  /**
-   * 共享的对象方法调用调度 - 同时在 execObjectMethodCall 和 evaluate 中使用
-   */
-  private async callObjectMethod(
-    objValue: RuntimeValue,
-    methodName: string,
-    args: RuntimeValue[],
-    scope: SymbolTable
-  ): Promise<void> {
-    // Handle FilterObject
-    if (isFilterObject(objValue)) {
-      await this.callFilterMethod(objValue, methodName, args)
-      return
-    }
-
-    // Handle AudioObject
-    if (isAudioObject(objValue)) {
-      await this.callAudioMethod(objValue, methodName, args)
-      return
-    }
-
-    // Find the target SceneObject
-    let targetObj: SceneObject | undefined
-    if (isSceneObjectValue(objValue)) {
-      targetObj = objValue
-    } else if (typeof objValue === 'string') {
-      targetObj = this.sceneObjects.get(objValue)
-    }
-
-    if (!targetObj) {
-      // Check if it's a built-in function on a non-object (e.g., playBGM)
-      const builtinFunc = this.symbolTable.get(methodName)
-      if (builtinFunc && typeof (builtinFunc as unknown as Record<string, unknown>).call === 'function') {
-        // This is a built-in function, call it
+    // Handle factory non-set method calls (e.g., Background.full_screen())
+    if (isFactory(objValue)) {
+      const factoryName = objValue.name
+      if (factoryName === 'Background' && methodName === 'full_screen') {
+        this.createSolidBackground('full_screen', 0x000000, '全屏黑')
         return
       }
-      const valType = objValue === null ? 'null' : typeof objValue
-      throw new Error(`无法调用方法 '${methodName}'：'obj' (${valType}) 不是场景对象`)
-    }
-
-    // Check if method is a built-in method
-    const builtinMethod = builtinMethods[methodName]
-    if (builtinMethod) {
-      await builtinMethod(targetObj, args, this)
-      return
-    }
-
-    // Check type-specific user-defined ObjectFunction first
-    if (targetObj.objectType) {
-      const typeKey = `${targetObj.objectType}::${methodName}`
-      const typeObjFuncDef = this.objectFunctions.get(typeKey)
-      if (typeObjFuncDef) {
-        await this.callObjectFunction(typeObjFuncDef, targetObj, args, scope)
+      if (factoryName === 'Background' && methodName === 'full_white') {
+        this.createSolidBackground('full_white', 0xffffff, '全屏白')
         return
       }
+      throw new Error(`工厂 '${factoryName}' 没有方法 '${methodName}'`)
     }
 
-    // Check if method is a user-defined ObjectFunction (generic)
-    const objFuncDef = this.objectFunctions.get(methodName)
-    if (objFuncDef) {
-      await this.callObjectFunction(objFuncDef, targetObj, args, scope)
-      return
-    }
-
-    // Check if it's a registered builtin ObjectFunction
-    if (builtinObjectFunctions[methodName]) {
-      await builtinObjectFunctions[methodName](targetObj, args, this)
-      return
-    }
-
-    // Check method aliases
-    if (targetObj.objectType) {
-      const aliasKey = `${targetObj.objectType}::${methodName}`
-      const aliasMethod = this.methodAliases.get(aliasKey)
-      if (aliasMethod) {
-        // Resolve the alias to original method name
-        const originalMethodName = aliasMethod.split('::').pop()!
-        return this.callObjectMethod(objValue, originalMethodName, args, scope)
-      }
-    }
-
-    // Also check generic ObjectType::methodName alias
-    const genericAliasKey = `ObjectType::${methodName}`
-    const genericAliasMethod = this.methodAliases.get(genericAliasKey)
-    if (genericAliasMethod) {
-      const originalMethodName = genericAliasMethod.split('::').pop()!
-      return this.callObjectMethod(objValue, originalMethodName, args, scope)
-    }
-
-    // Also check if methodName itself is an alias for a specific method
-    const directAlias = this.methodAliases.get(methodName)
-    if (directAlias) {
-      const parts = directAlias.split('::')
-      if (parts.length > 1) {
-        const originalMethodName = parts.pop()!
-        return this.callObjectMethod(objValue, originalMethodName, args, scope)
-      }
-    }
-
-    throw new Error(`未知方法 '${methodName}'`)
+    // Delegate to ObjectMethodDispatcher (O(1) method table lookup)
+    await this.methodDispatcher.callObjectMethod(objValue, methodName, args, this, scope)
   }
 
-  private async callFilterMethod(filterObj: FilterObject, methodName: string, args: RuntimeValue[]): Promise<void> {
-    switch (methodName) {
-      case 'begin':
-        filterObj.begin()
-        break
-      case 'end':
-        filterObj.end()
-        break
-      case 'hex': {
-        const color = String(args[0] ?? '')
-        filterObj.hex(color)
-        break
-      }
-      case 'rgb': {
-        const r = (args[0] as number) ?? 0
-        const g = (args[1] as number) ?? 0
-        const b = (args[2] as number) ?? 0
-        filterObj.rgb(r, g, b)
-        break
-      }
-      case 'blur':
-        filterObj.blur((args[0] as number) ?? 0)
-        break
-      case 'brightness':
-        filterObj.brightness((args[0] as number) ?? 1)
-        break
-      case 'contrast':
-        filterObj.contrast((args[0] as number) ?? 1)
-        break
-      case 'saturation':
-        filterObj.saturation((args[0] as number) ?? 1)
-        break
-      case 'gamma':
-        filterObj.gamma((args[0] as number) ?? 1)
-        break
-      case 'intensity':
-        await filterObj.intensity((args[0] as number) ?? 1, (args[1] as number) ?? undefined)
-        break
-      default:
-        throw new Error(`滤镜对象不支持方法 '${methodName}'`)
-    }
-  }
 
-  private async callAudioMethod(audio: AudioObject, methodName: string, args: RuntimeValue[]): Promise<void> {
-    switch (methodName) {
-      case 'begin':
-      case 'loop': {
-        const looping = methodName === 'loop'
-        // 销毁旧的 Howl 实例（先 stop 再 unload，释放音频缓冲数据）
-        if (audio.howl) {
-          ;(audio.howl as any).stop()
-          ;(audio.howl as any).unload()
-          audio.howl = null
-        }
-        const howl = new Howl({
-          src: [audio.filePath],
-          loop: looping,
-          volume: audio.volume
-        })
-        audio.howl = howl
-        audio.looping = looping
-        audio.paused = false
-        howl.rate(audio.playbackRate)
-        howl.play()
-        break
-      }
-      case 'pause':
-        if (audio.howl) {
-          ;(audio.howl as any).pause()
-          audio.paused = true
-        }
-        break
-      case 'end':
-        // end 替代原来的 stop，用 ObjectType::end() 释放音频资源
-        if (audio.howl) {
-          ;(audio.howl as any).stop()
-          ;(audio.howl as any).unload()
-          audio.howl = null
-        }
-        audio.paused = false
-        break
-      case 'volume': {
-        const vol = Math.max(0, Math.min(100, (args[0] as number) ?? 100))
-        const time = (args[1] as number) ?? 0
-        audio.volume = vol / 100
-        const howl = audio.howl as any
-        if (audio.howl && time > 0) {
-          howl.fade(howl.volume(), audio.volume, time)
-        } else if (audio.howl) {
-          howl.volume(audio.volume)
-        }
-        break
-      }
-      case 'speed': {
-        const targetRate = Math.max(0.1, (args[0] as number) ?? 1)
-        const time = (args[1] as number) ?? 0
-        if (audio.howl && time > 0) {
-          const howl = audio.howl as any
-          const startRate = howl.rate()
-          const startTime = performance.now()
-          const animate = (now: number) => {
-            const elapsed = now - startTime
-            const t = Math.min(elapsed / (time * 1000), 1)
-            const currentRate = startRate + (targetRate - startRate) * t
-            howl.rate(currentRate)
-            audio.playbackRate = currentRate
-            if (t < 1) {
-              requestAnimationFrame(animate)
-            }
-          }
-          requestAnimationFrame(animate)
-        } else if (audio.howl) {
-          ;(audio.howl as any).rate(targetRate)
-          audio.playbackRate = targetRate
-        } else {
-          audio.playbackRate = targetRate
-        }
-        break
-      }
-      case 'set':
-        // Audio.set already handled at factory, just update path
-        if (typeof args[0] === 'string') {
-          audio.filePath = args[0]
-        }
-        break
-      default:
-        throw new Error(`音频对象不支持方法 '${methodName}'`)
-    }
-  }
 
-  private resolveObjectId(expr: ExpressionNode): string {
-    if (expr.type === 'ReferenceCall') {
-      return expr.ref
-    }
-    return String(Math.random())
-  }
+
 
   /**
-   * 根据工厂类型自动补全资产路径
-   * 所有资源统一放置在 assets/public/ 目录下：
-   *   Character  → assets/public/character/{filename}
-   *   Background → assets/public/background/{filename}
-   *   Audio      → assets/public/audio/{subdir/filename}
+   * 播放对话音频 - 对话框出现时自动播放一次，终止上一个对话音频，播放完成后自动销毁
+   * @param audioPath 相对于 audio 目录的文件路径，如 "effect/click.mp3"
+   * @returns 音频时长（毫秒），无音频时返回 0
    */
-  private resolveAssetPath(rawPath: string, factoryName: string | null): string {
-    const baseDir = factoryName === 'Character' ? 'assets/public/character' :
-                    factoryName === 'Background' ? 'assets/public/background' :
-                    factoryName === 'Audio' ? 'assets/public/audio' : ''
-    if (!baseDir) return rawPath
-    // 所有路径均拼接到对应基目录下（Audio 的路径已含子目录如 bgm/、effect/）
-    return `${baseDir}/${rawPath}`
+  playDialogueAudio(audioPath: string | undefined): Promise<number> {
+    return this.audioManager.playDialogueAudio(audioPath, {
+      lastExecutionLine: this.lastExecutionLine,
+      onError: this.onError,
+      onExecutionError: this.onExecutionError,
+      onWarning: this.onWarning,
+      resolveAssetPath: (raw, factory) => this.assetResolver.resolveAssetPath(raw, factory)
+    })
   }
 
-  /**
-   * 异步验证头像路径是否存在，不存在时发出黄色警告并清空头像
-   */
-  private async validateAvatorPath(sceneObj: SceneObject, displayName: string): Promise<void> {
-    try {
-      const exists = await window.electronAPI?.fileExists(sceneObj.avatorPath)
-      if (exists === false) {
-        this.onWarning?.(`Character '${displayName}' 的头像路径无效: ${sceneObj.avatorPath}`)
-        sceneObj.avatorPath = ''
-      }
-    } catch {
-      // 无法验证路径时（如非 Electron 环境），保留路径让 DialogBox 运行时决定
-    }
-  }
 
-  private resolveFactoryName(expr: ExpressionNode): string | null {
-    if (expr.type === 'ReferenceCall') {
-      const val = this.getSymbolTable().get(expr.ref)
-      if (val !== undefined && isFactory(val)) return val.name
-      // Check if the ref is a type alias for a factory
-      if (this.typeAliases.has(expr.ref)) {
-        const originalType = this.typeAliases.get(expr.ref)!
-        const originalVal = this.symbolTable.get(originalType)
-        if (originalVal && isFactory(originalVal)) return originalVal.name
-      }
-    }
-    return null
-  }
 
-  private async callObjectFunction(
-    def: ObjectFunctionDefNode,
-    obj: SceneObject,
-    args: RuntimeValue[],
-    _scope: SymbolTable
-  ): Promise<void> {
-    const funcScope = new SymbolTable()
-    // 绑定用户声明的参数，跳过 'obj'——它始终由运行时自动绑定为调用该方法的场景对象
-    let argIdx = 0
-    for (let i = 0; i < def.params.length; i++) {
-      if (def.params[i] === 'obj') continue  // obj 不占用参数位置
-      const autoZero = def.autoZeroParams && def.autoZeroParams[i]
-      funcScope.declare(def.params[i], args[argIdx] ?? (autoZero ? 0 : null))
-      argIdx++
-    }
-    // 'obj' 始终指代调用方法的场景对象
-    funcScope.declare('obj', obj)
-    await this.executeBlock(def.block, funcScope)
-  }
+
 
   private async execIfStatement(stmt: IfStatementNode, scope: SymbolTable): Promise<void> {
     const condition = await this.evaluate(stmt.condition, scope)
@@ -1090,20 +906,35 @@ export class Runtime {
 
           // Filter factory: set() 不需要参数
           if (factoryName === 'Filter') {
-            const objId = this.resolveObjectId(mc.obj)
-            const filterObj = new FilterObject(objId, this.app, this.sceneContainer)
-            this.registerFilterObject(objId, filterObj)
-            s.declare(objId, filterObj)
-            this.log(`定义滤镜 ${objId}`)
+            const filterObj = new FilterObject(this.assetResolver.generateObjectId(), this.app, this.sceneContainer)
+            this.registerFilterObject(filterObj.id, filterObj)
+            // evaluate 路径不覆盖工厂名，由赋值语句负责将返回值存入变量
+            this.log(`定义滤镜 ${filterObj.id}`)
             return filterObj
           }
 
+          // Text factory: set(text) 创建文本对象
+          if (factoryName === 'Text') {
+            const textObjId = this.assetResolver.generateObjectId()
+            const textContent = String(args[0] ?? '')
+            const sceneObj = new SceneObject(textObjId, this.app, this.sceneContainer)
+            sceneObj.objectType = 'Text'
+            sceneObj.scriptId = textObjId
+            sceneObj.displayName = displayName
+            sceneObj.setText(textContent)
+            sceneObj.zIndex = 999
+            this.registerSceneObject(textObjId, sceneObj)
+            scope.declare(textObjId, sceneObj)
+            this.log(`定义文本 ${textObjId}: "${textContent}"`)
+            return
+          }
+
           if (typeof args[0] !== 'string') throw new Error('set() 需要一个路径参数')
-          const objId = this.resolveObjectId(mc.obj)
+          const objId = this.assetResolver.generateObjectId()
 
           // Resolve asset path
           const rawPath = args[0] as string
-          const resolvedPath = this.resolveAssetPath(rawPath, factoryName)
+          const resolvedPath = this.assetResolver.resolveAssetPath(rawPath, factoryName)
 
           // Extract display name (second arg to set: set(path, name))
           const displayName = args.length >= 2 && typeof args[1] === 'string'
@@ -1115,6 +946,8 @@ export class Runtime {
             const audioObj: AudioObject = {
               type: 'audio',
               id: objId,
+              scriptId: '',
+              displayName,
               filePath: resolvedPath,
               howl: null,
               looping: false,
@@ -1122,20 +955,25 @@ export class Runtime {
               paused: false,
               playbackRate: 1
             }
-            s.declare(objId, audioObj)
             this.registerAudioObject(objId, audioObj)
+            // 格式预检（仅警告，不阻止创建）
+            if (!this.audioManager.isAudioFormatSupported(resolvedPath)) {
+              this.onWarning?.(`不支持的音频格式: ${resolvedPath}（支持的格式: mp3, ogg, opus, wav, aac, m4a, flac, webm）`)
+            }
+            this.log(`定义音频 ${objId} (${resolvedPath})`)
             return audioObj
           }
 
           const sceneObj = new SceneObject(objId, this.app, this.sceneContainer)
           sceneObj.objectType = factoryName
+          sceneObj.scriptId = ''
           sceneObj.displayName = displayName
 
           // Extract avator (third arg to set: set(path, name, avator))
           if (args.length >= 3 && typeof args[2] === 'string') {
             const avatorPath = args[2] as string
             if (avatorPath && factoryName === 'Character') {
-              const resolvedAvatorPath = this.resolveAssetPath(avatorPath, factoryName)
+              const resolvedAvatorPath = this.assetResolver.resolveAssetPath(avatorPath, factoryName)
               sceneObj.avatorPath = resolvedAvatorPath
             }
           }
@@ -1144,11 +982,23 @@ export class Runtime {
 
           // 异步验证头像路径
           if (sceneObj.avatorPath) {
-            this.validateAvatorPath(sceneObj, displayName)
+            this.assetResolver.validateAvatorPath(sceneObj, displayName, this.onWarning)
           }
 
           this.registerSceneObject(objId, sceneObj)
           return sceneObj
+        }
+
+        // Factory non-set method calls (e.g., Background.full_screen())
+        if (isFactory(objValue)) {
+          const factoryName = objValue.name
+          if (factoryName === 'Background' && mc.method === 'full_screen') {
+            return this.createSolidBackground('full_screen', 0x000000, '全屏黑')
+          }
+          if (factoryName === 'Background' && mc.method === 'full_white') {
+            return this.createSolidBackground('full_white', 0xffffff, '全屏白')
+          }
+          throw new Error(`工厂 '${factoryName}' 没有方法 '${mc.method}'`)
         }
 
         // Direct property/expression getters on SceneObject
@@ -1171,8 +1021,9 @@ export class Runtime {
         }
 
         // Handle all other object method calls (begin, move, alpha, etc.)
-        await this.callObjectMethod(objValue, mc.method, args, s)
-        return null
+        // 返回 objValue 以支持链式调用：obj.a().b()
+        await this.methodDispatcher.callObjectMethod(objValue, mc.method, args, this, s)
+        return objValue
       }
       default:
         throw new Error(`未知表达式类型: ${(expr as { type: string }).type}`)
@@ -1204,6 +1055,13 @@ export class Runtime {
     const left = await this.evaluate(expr.left, scope)
     const right = await this.evaluate(expr.right, scope)
 
+    // 禁止 bool 参与数值运算
+    if (typeof left === 'boolean' || typeof right === 'boolean') {
+      if (expr.op !== '==' && expr.op !== '!=' && expr.op !== '&&' && expr.op !== '||') {
+        throw new Error('类型错误: 布尔值不能参与数值运算（小类型不能转换为大类型）')
+      }
+    }
+
     switch (expr.op) {
       case '+':
         if (typeof left === 'number' && typeof right === 'number') return left + right
@@ -1229,7 +1087,9 @@ export class Runtime {
   private async evalUnary(expr: UnaryOpNode, scope: SymbolTable): Promise<RuntimeValue> {
     const val = await this.evaluate(expr.expr, scope)
     switch (expr.op) {
-      case '-': return -(val as number)
+      case '-':
+        if (typeof val === 'boolean') throw new Error('类型错误: 布尔值不能参与数值运算（小类型不能转换为大类型）')
+        return -(val as number)
       case '!': return !isTruthy(val)
       default:
         throw new Error(`未知一元运算符 '${expr.op}'`)
@@ -1282,474 +1142,7 @@ function formatValue(val: RuntimeValue): string {
   return String(val)
 }
 
-// ---- Built-in Object Methods ----
-
-const builtinMethods: Record<string, (obj: SceneObject, args: RuntimeValue[], runtime: Runtime) => Promise<void>> = {
-  // ---- 生命周期 ----
-  begin: async (obj, args) => {
-    const mode = typeof args[0] === 'number' ? args[0] : 0
-    obj.begin(mode)
-  },
-  hide: async (obj) => obj.hide(),
-  end: async (obj) => obj.end(),
-
-  // ---- 动图控制 ----
-  /** loop()：循环播放动图 */
-  loop: async (obj) => {
-    obj.loopAnim()
-  },
-  /** pause()：暂停动图播放 */
-  pause: async (obj) => {
-    obj.pauseAnim()
-  },
-  /** stop()：停止动图播放并重置到第一帧 */
-  stop: async (obj) => {
-    obj.stopAnim()
-  },
-  /** speed(val, time?)：设置动图播放倍速，1.0 为原速 */
-  speed: async (obj, args) => {
-    const val = Math.max(0.1, (args[0] as number) ?? 1)
-    obj.setAnimSpeed(val)
-  },
-  /** fps(val)：设置动图帧率，覆盖 GIF 原始帧间隔，如 fps(16) 表示 16 FPS，fps(0) 恢复原始 */
-  fps: async (obj, args) => {
-    const val = (args[0] as number) ?? 16
-    obj.setFPS(val)
-  },
-  /** frame(val)：将 Sprite 加入舞台，静态显示动图指定帧（默认第 1 帧），不播放 */
-  frame: async (obj, args) => {
-    const val = (args[0] as number) ?? 1
-    obj.showFrame(val)
-  },
-
-  // ---- 移动与变换 ----
-  /** move(dx, dy, time=0)：相对位移。当前坐标 + dx, +dy */
-  move: async (obj, args, runtime) => {
-    const dx = (args[0] as number) ?? 0
-    const dy = (args[1] as number) ?? 0
-    const duration = (args.length >= 3 && typeof args[2] === 'number')
-      ? (args[2] as number)
-      : runtime.getAsyncTime()
-    const targetWorldX = obj.x + dx
-    const targetWorldY = obj.y + dy
-    const screenX = 960 + targetWorldX
-    const screenY = 540 - targetWorldY
-    if (duration > 0 && obj.sprite) {
-      await runtime.getAnimQueue().moveTo(obj.sprite!, screenX, screenY, duration)
-    } else {
-      if (obj.sprite) { obj.sprite.x = screenX; obj.sprite.y = screenY }
-    }
-    obj.x = targetWorldX
-    obj.y = targetWorldY
-  },
-  /** setPos(x, y, time=0) 或 setPos(position, time=0)：绝对位移 */
-  setPos: async (obj, args, runtime) => {
-    let targetX: number, targetY: number, duration = 0
-    if (args.length >= 1 && isRuntimeMap(args[0])) {
-      // setPos(position, time?)
-      const pos = args[0] as RuntimeMap
-      targetX = (pos.entries.posX as number) ?? obj.x
-      targetY = (pos.entries.posY as number) ?? obj.y
-      duration = (args.length >= 2 && typeof args[1] === 'number')
-        ? (args[1] as number)
-        : runtime.getAsyncTime()
-    } else {
-      // setPos(x, y, time?)
-      targetX = (args[0] as number) ?? obj.x
-      targetY = (args[1] as number) ?? obj.y
-      duration = (args.length >= 3 && typeof args[2] === 'number')
-        ? (args[2] as number)
-        : runtime.getAsyncTime()
-    }
-    const screenX = 960 + targetX
-    const screenY = 540 - targetY
-    if (duration > 0 && obj.sprite) {
-      await runtime.getAnimQueue().moveTo(obj.sprite!, screenX, screenY, duration)
-    } else {
-      if (obj.sprite) { obj.sprite.x = screenX; obj.sprite.y = screenY }
-    }
-    obj.x = targetX
-    obj.y = targetY
-  },
-  moveToX: async (obj, args, runtime) => {
-    const x = args[0] as number
-    const duration = (args.length >= 2 && typeof args[1] === 'number')
-      ? (args[1] as number)
-      : (runtime.getAsyncTime() || 1000)
-    await runtime.getAnimQueue().animate(obj.sprite!, { x: 960 + x }, duration)
-    obj.x = x
-  },
-  moveToY: async (obj, args, runtime) => {
-    const y = args[0] as number
-    const duration = (args.length >= 2 && typeof args[1] === 'number')
-      ? (args[1] as number)
-      : (runtime.getAsyncTime() || 1000)
-    await runtime.getAnimQueue().animate(obj.sprite!, { y: 540 - y }, duration)
-    obj.y = y
-  },
-  /** rotate(angle, time=0)：绝对旋转角度（度） */
-  rotate: async (obj, args, runtime) => {
-    const angle = args[0] as number
-    const duration = (args.length >= 2 && typeof args[1] === 'number')
-      ? (args[1] as number)
-      : runtime.getAsyncTime()
-    const rad = angle * (Math.PI / 180)
-    if (duration > 0 && obj.sprite) {
-      await runtime.getAnimQueue().rotateTo(obj.sprite!, rad, duration)
-    } else {
-      if (obj.sprite) obj.sprite.rotation = rad
-    }
-    obj.rotation = rad
-  },
-  /** rotateTo(angle, time=0)：相对旋转，在当前旋转角度上再旋转 angle 度 */
-  rotateTo: async (obj, args, runtime) => {
-    const angle = args[0] as number
-    const duration = (args.length >= 2 && typeof args[1] === 'number')
-      ? (args[1] as number)
-      : runtime.getAsyncTime()
-    const targetDeg = obj.rotation * (180 / Math.PI) + angle
-    const rad = targetDeg * (Math.PI / 180)
-    if (duration > 0 && obj.sprite) {
-      await runtime.getAnimQueue().rotateTo(obj.sprite!, rad, duration)
-    } else {
-      if (obj.sprite) obj.sprite.rotation = rad
-    }
-    obj.rotation = rad
-  },
-
-  // ---- 变换 ----
-  /** scale(val, time=0)：绝对缩放，val=1.0 为原始大小 */
-  scale: async (obj, args, runtime) => {
-    const val = args[0] as number
-    const time = (args.length >= 2 && typeof args[1] === 'number')
-      ? (args[1] as number)
-      : runtime.getAsyncTime()
-    if (time > 0 && obj.sprite) {
-      await runtime.getAnimQueue().animateProperty(obj.sprite.scale, { x: val, y: val }, time)
-    }
-    obj.setScale(val)
-  },
-  /** scaleTo(val, time=0)：相对缩放，在当前缩放基础上再乘 val 倍 */
-  scaleTo: async (obj, args, runtime) => {
-    const multiplier = args[0] as number
-    const time = (args.length >= 2 && typeof args[1] === 'number')
-      ? (args[1] as number)
-      : runtime.getAsyncTime()
-    const targetVal = obj.scaleX * multiplier
-    if (time > 0 && obj.sprite) {
-      await runtime.getAnimQueue().animateProperty(obj.sprite.scale, { x: targetVal, y: targetVal }, time)
-    }
-    obj.setScale(targetVal)
-  },
-  /** scaleX(val, time=async)：水平缩放 */
-  scaleX: async (obj, args, runtime) => {
-    const val = args[0] as number
-    const time = (args.length >= 2 && typeof args[1] === 'number')
-      ? (args[1] as number)
-      : runtime.getAsyncTime()
-    if (time > 0 && obj.sprite) {
-      await runtime.getAnimQueue().animateProperty(obj.sprite.scale, { x: val }, time)
-    }
-    obj.setScaleX(val)
-  },
-  /** scaleY(val, time=async)：垂直缩放 */
-  scaleY: async (obj, args, runtime) => {
-    const val = args[0] as number
-    const time = (args.length >= 2 && typeof args[1] === 'number')
-      ? (args[1] as number)
-      : runtime.getAsyncTime()
-    if (time > 0 && obj.sprite) {
-      await runtime.getAnimQueue().animateProperty(obj.sprite.scale, { y: val }, time)
-    }
-    obj.setScaleY(val)
-  },
-  /** scaleXTo(val, time=0)：水平相对缩放，在当前水平缩放基础上再乘 val 倍 */
-  scaleXTo: async (obj, args, runtime) => {
-    const multiplier = args[0] as number
-    const time = (args.length >= 2 && typeof args[1] === 'number')
-      ? (args[1] as number)
-      : runtime.getAsyncTime()
-    const targetVal = obj.scaleX * multiplier
-    if (time > 0 && obj.sprite) {
-      await runtime.getAnimQueue().animateProperty(obj.sprite.scale, { x: targetVal }, time)
-    }
-    obj.setScaleX(targetVal)
-  },
-  /** scaleYTo(val, time=0)：垂直相对缩放，在当前垂直缩放基础上再乘 val 倍 */
-  scaleYTo: async (obj, args, runtime) => {
-    const multiplier = args[0] as number
-    const time = (args.length >= 2 && typeof args[1] === 'number')
-      ? (args[1] as number)
-      : runtime.getAsyncTime()
-    const targetVal = obj.scaleY * multiplier
-    if (time > 0 && obj.sprite) {
-      await runtime.getAnimQueue().animateProperty(obj.sprite.scale, { y: targetVal }, time)
-    }
-    obj.setScaleY(targetVal)
-  },
-  alpha: async (obj, args, runtime) => {
-    const val = Math.max(0, Math.min(1, args[0] as number))
-    const time = (args.length >= 2 && typeof args[1] === 'number')
-      ? (args[1] as number)
-      : runtime.getAsyncTime()
-    if (time > 0 && obj.sprite) {
-      await runtime.getAnimQueue().animateProperty(obj.sprite, { alpha: val }, time)
-    }
-    obj.setAlpha(val)
-  },
-  index: async (obj, args) => {
-    obj.setIndex(args[0] as number)
-  },
-  setAlpha: async (obj, args, runtime) => {
-    const val = Math.max(0, Math.min(1, args[0] as number))
-    const time = (args.length >= 2 && typeof args[1] === 'number')
-      ? (args[1] as number)
-      : runtime.getAsyncTime()
-    if (time > 0 && obj.sprite) {
-      await runtime.getAnimQueue().animateProperty(obj.sprite, { alpha: val }, time)
-    }
-    obj.setAlpha(val)
-  },
-  setScale: async (obj, args, runtime) => {
-    if (args.length >= 2 && typeof args[0] === 'number' && typeof args[1] === 'number') {
-      const sx = args[0] as number
-      const sy = args[1] as number
-      const time = (args.length >= 3 && typeof args[2] === 'number')
-        ? (args[2] as number)
-        : runtime.getAsyncTime()
-      if (time > 0 && obj.sprite) {
-        await runtime.getAnimQueue().animateProperty(obj.sprite.scale, { x: sx, y: sy }, time)
-      }
-      obj.setScaleXY(sx, sy)
-    } else {
-      const val = args[0] as number
-      const time = (args.length >= 2 && typeof args[1] === 'number')
-        ? (args[1] as number)
-        : runtime.getAsyncTime()
-      if (time > 0 && obj.sprite) {
-        await runtime.getAnimQueue().animateProperty(obj.sprite.scale, { x: val, y: val }, time)
-      }
-      obj.setScale(val)
-    }
-  },
-  setTint: async (obj, args) => {
-    obj.setTint(args[0] as number)
-  },
-
-  // ---- 滤镜 ----
-  blur: async (obj, args, runtime) => {
-    const val = args[0] as number
-    const time = (args.length >= 2 && typeof args[1] === 'number')
-      ? (args[1] as number)
-      : runtime.getAsyncTime()
-    const intensity = (args.length >= 3 && typeof args[2] === 'number')
-      ? Math.max(0, Math.min(1, args[2] as number))
-      : 1
-    obj.intensityValue = intensity
-    if (time > 0) {
-      // 确保滤镜存在，然后对 blur 数值属性做 GSAP 渐变动画
-      obj.setBlur(obj.blurValue)
-      const targetBlur = Math.max(0, val * 10) * intensity
-      await runtime.getAnimQueue().animateProperty(obj.blurFilter!, { blur: targetBlur }, time)
-    }
-    obj.setBlur(val)
-  },
-  brightness: async (obj, args, runtime) => {
-    const val = args[0] as number
-    const time = (args.length >= 2 && typeof args[1] === 'number')
-      ? (args[1] as number)
-      : runtime.getAsyncTime()
-    const intensity = (args.length >= 3 && typeof args[2] === 'number')
-      ? Math.max(0, Math.min(1, args[2] as number))
-      : 1
-    obj.intensityValue = intensity
-    if (time > 0) {
-      const startVal = obj.brightnessValue
-      await runtime.getAnimQueue().animateCallback((progress) => {
-        obj.setBrightness(startVal + (val - startVal) * progress)
-      }, time)
-    }
-    obj.setBrightness(val)
-  },
-  contrast: async (obj, args, runtime) => {
-    const val = args[0] as number
-    const time = (args.length >= 2 && typeof args[1] === 'number')
-      ? (args[1] as number)
-      : runtime.getAsyncTime()
-    const intensity = (args.length >= 3 && typeof args[2] === 'number')
-      ? Math.max(0, Math.min(1, args[2] as number))
-      : 1
-    obj.intensityValue = intensity
-    if (time > 0) {
-      const startVal = obj.contrastValue
-      await runtime.getAnimQueue().animateCallback((progress) => {
-        obj.setContrast(startVal + (val - startVal) * progress)
-      }, time)
-    }
-    obj.setContrast(val)
-  },
-  saturation: async (obj, args, runtime) => {
-    const val = args[0] as number
-    const time = (args.length >= 2 && typeof args[1] === 'number')
-      ? (args[1] as number)
-      : runtime.getAsyncTime()
-    const intensity = (args.length >= 3 && typeof args[2] === 'number')
-      ? Math.max(0, Math.min(1, args[2] as number))
-      : 1
-    obj.intensityValue = intensity
-    if (time > 0) {
-      const startVal = obj.saturationValue
-      await runtime.getAnimQueue().animateCallback((progress) => {
-        obj.setSaturation(startVal + (val - startVal) * progress)
-      }, time)
-    }
-    obj.setSaturation(val)
-  },
-  gamma: async (obj, args, runtime) => {
-    const val = args[0] as number
-    const time = (args.length >= 2 && typeof args[1] === 'number')
-      ? (args[1] as number)
-      : runtime.getAsyncTime()
-    const intensity = (args.length >= 3 && typeof args[2] === 'number')
-      ? Math.max(0, Math.min(1, args[2] as number))
-      : 1
-    obj.intensityValue = intensity
-    if (time > 0) {
-      const startVal = obj.gammaValue
-      await runtime.getAnimQueue().animateCallback((progress) => {
-        obj.setGamma(startVal + (val - startVal) * progress)
-      }, time)
-    }
-    obj.setGamma(val)
-  },
-  rgb: async (obj, args, runtime) => {
-    const r = args[0] as number
-    const g = args[1] as number
-    const b = args[2] as number
-    const time = (args.length >= 4 && typeof args[3] === 'number')
-      ? (args[3] as number)
-      : runtime.getAsyncTime()
-    const intensity = (args.length >= 5 && typeof args[4] === 'number')
-      ? Math.max(0, Math.min(1, args[4] as number))
-      : 1
-    obj.intensityValue = intensity
-    if (time > 0) {
-      const [sr, sg, sb] = obj.rgbValue
-      await runtime.getAnimQueue().animateCallback((progress) => {
-        obj.setRGB(
-          sr + (r - sr) * progress,
-          sg + (g - sg) * progress,
-          sb + (b - sb) * progress
-        )
-      }, time)
-    }
-    obj.setRGB(r, g, b)
-  },
-  hex: async (obj, args, runtime) => {
-    const h = String(args[0] ?? '')
-    const time = (args.length >= 2 && typeof args[1] === 'number')
-      ? (args[1] as number)
-      : runtime.getAsyncTime()
-    const intensity = (args.length >= 3 && typeof args[2] === 'number')
-      ? Math.max(0, Math.min(1, args[2] as number))
-      : 1
-    obj.intensityValue = intensity
-    if (time > 0) {
-      // 解析目标 hex 为 RGB
-      const hx = h.replace('#', '')
-      const tr = parseInt(hx.substring(0, 2), 16)
-      const tg = parseInt(hx.substring(2, 4), 16)
-      const tb = parseInt(hx.substring(4, 6), 16)
-      if (!isNaN(tr) && !isNaN(tg) && !isNaN(tb)) {
-        const [sr, sg, sb] = obj.rgbValue
-        await runtime.getAnimQueue().animateCallback((progress) => {
-          obj.setRGB(
-            sr + (tr - sr) * progress,
-            sg + (tg - sg) * progress,
-            sb + (tb - sb) * progress
-          )
-        }, time)
-      }
-    }
-    obj.setHex(h)
-  },
-  clearFilters: async (obj) => {
-    obj.clearFilters()
-  },
-  // ---- 高级滤镜（需 pixi-filters） ----
-  glow: async (obj, args, runtime) => {
-    const val = args[0] as number
-    const time = (args.length >= 2 && typeof args[1] === 'number')
-      ? (args[1] as number)
-      : runtime.getAsyncTime()
-    const intensity = (args.length >= 3 && typeof args[2] === 'number')
-      ? Math.max(0, Math.min(1, args[2] as number))
-      : 1
-    obj.intensityValue = intensity
-    if (time > 0) {
-      const startVal = obj.glowValue
-      await runtime.getAnimQueue().animateCallback((progress) => {
-        obj.setGlow(startVal + (val - startVal) * progress)
-      }, time)
-    }
-    obj.setGlow(val)
-  },
-  dropShadow: async (obj, args, runtime) => {
-    const val = args[0] as number
-    const time = (args.length >= 2 && typeof args[1] === 'number')
-      ? (args[1] as number)
-      : runtime.getAsyncTime()
-    const intensity = (args.length >= 3 && typeof args[2] === 'number')
-      ? Math.max(0, Math.min(1, args[2] as number))
-      : 1
-    obj.intensityValue = intensity
-    if (time > 0) {
-      const startVal = 0
-      await runtime.getAnimQueue().animateCallback((progress) => {
-        obj.setDropShadow(startVal + (val - startVal) * progress)
-      }, time)
-    }
-    obj.setDropShadow(val)
-  },
-  noise: async (obj, args, runtime) => {
-    const val = args[0] as number
-    const time = (args.length >= 2 && typeof args[1] === 'number')
-      ? (args[1] as number)
-      : runtime.getAsyncTime()
-    const intensity = (args.length >= 3 && typeof args[2] === 'number')
-      ? Math.max(0, Math.min(1, args[2] as number))
-      : 1
-    obj.intensityValue = intensity
-    if (time > 0) {
-      const startVal = obj.noiseValue
-      await runtime.getAnimQueue().animateCallback((progress) => {
-        obj.setNoise(startVal + (val - startVal) * progress)
-      }, time)
-    }
-    obj.setNoise(val)
-  },
-
-  // ---- 对话 ----
-  say: async (obj, args, runtime) => {
-    const text = String(args[0] ?? '')
-    const speaker = obj.displayName  // 使用显示名称而非 id
-    const avator = obj.avatorPath || ''  // 自动装填头像路径
-    if (runtime.onDialogue) {
-      await runtime.onDialogue(speaker, text, avator)
-    } else {
-      runtime.getSymbolTable().get('say') // fallback to global say
-    }
-  }
-}
-
 /** 检查值是否为 RuntimeMap */
 function isRuntimeMap(val: RuntimeValue): val is RuntimeMap {
   return typeof val === 'object' && val !== null && !Array.isArray(val) && (val as Record<string, unknown>).type === 'map'
 }
-
-// Object functions callable from script
-const builtinObjectFunctions: Record<string, (obj: SceneObject, args: RuntimeValue[], runtime: Runtime) => Promise<void>> = {
-  // Additional builtins can be added here
-}
-
-export { builtinMethods, builtinObjectFunctions }
