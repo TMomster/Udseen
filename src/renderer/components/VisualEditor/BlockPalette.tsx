@@ -38,6 +38,9 @@ export function BlockPalette({ onDragBlock, onDeleteBlock }: BlockPaletteProps):
       } else if (b.blockType === 'CreateFilter' && b.data.tagName) {
         const key = String(b.data.tagName)
         if (!seen.has(key)) { seen.add(key); objects.push({ name: key, type: 'Filter', color: '#2d3436' }) }
+      } else if (b.blockType === 'CreateText' && b.data.tagName) {
+        const key = String(b.data.tagName)
+        if (!seen.has(key)) { seen.add(key); objects.push({ name: key, type: 'Text', color: '#a29bfe' }) }
       } else if (b.blockType === 'ObjectFunctionDef' && b.data.typeName) {
         // ObjectFunctionDef 内部提供默认 obj 参数，代表函数第一个参数（目标对象）
         const objKey = 'obj'
