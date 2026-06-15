@@ -235,6 +235,7 @@ export function CardRenderer({ block, depth = 0, isChild = false, onContextMenu,
       case 'BgBegin':
       case 'BgFullScreen':
       case 'BgFullWhite':
+      case 'BgFit':
       case 'TextBold':
       case 'TextItalic':
       case 'TextUline':
