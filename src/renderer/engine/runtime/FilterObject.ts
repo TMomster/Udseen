@@ -44,6 +44,9 @@ export class FilterObject {
   rgbValue: [number, number, number] = [255, 255, 255]
   glowValue: number = 0
   noiseValue: number = 0
+  bwValue: number = 0
+  distortValue: number = 0
+  psychedelicValue: number = 0
 
   /** 滤镜强度 0~1.0，默认 1 为全强度 */
   intensityValue: number = 1
@@ -132,19 +135,34 @@ export class FilterObject {
 
   // ---- 滤镜设置方法 ----
 
-  /** Hex 颜色滤镜，如 "#7F66FF" */
-  hex(color: string): void {
+  /**
+   * Hex 颜色滤镜
+   * `hex("#7F66FF")` - 立即应用
+   * `hex("#7F66FF", 500)` - 500ms 内渐变到目标颜色
+   * `hex("#7F66FF", 500, 0.5)` - 500ms 渐变 + 50% 强度
+   */
+  hex(color: string, time?: number, intensity?: number): void {
+    // time 参数在此处不用（tweening 由 dispatch 层处理），但需要接收透传
     const h = color.replace('#', '')
     const r = parseInt(h.substring(0, 2), 16)
     const g = parseInt(h.substring(2, 4), 16)
     const b = parseInt(h.substring(4, 6), 16)
     if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
-      this.rgb(r, g, b)
+      this.rgb(r, g, b, time, intensity)
     }
   }
 
-  /** RGB 颜色滤镜 (r, g, b) 0~255 */
-  rgb(r: number, g: number, b: number): void {
+  /**
+   * RGB 颜色滤镜
+   * `rgb(r, g, b)` - 立即应用
+   * `rgb(r, g, b, 500)` - 500ms 内渐变
+   * `rgb(r, g, b, 500, 0.5)` - 500ms 渐变 + 50% 强度
+   */
+  rgb(r: number, g: number, b: number, time?: number, intensity?: number): void {
+    // time 参数在此处不用（tweening 由 dispatch 层处理），但作为 API 签名统一
+    if (intensity !== undefined) {
+      this.intensityValue = Math.max(0, Math.min(1, intensity))
+    }
     this.rgbValue = [r, g, b]
     const cf = this.getOrCreateColorFilter()
     const rr = Math.max(0, Math.min(255, r)) / 255
@@ -283,6 +301,74 @@ export class FilterObject {
       this.dropShadowFilter.blur = Math.max(1, effective * 0.5)
       this.dropShadowFilter.alpha = 0.5 * this.intensityValue
     }
+    this.syncToStage()
+  }
+
+  // ========== 新增滤镜 ==========
+
+  /** 黑白效果 0~1.0 */
+  bw(val: number): void {
+    this.bwValue = val
+    const cf = this.getOrCreateColorFilter()
+    cf.reset()
+    if (val <= 0) {
+      this.fullColorMatrix = null
+      this.syncToStage()
+      return
+    }
+    const effective = Math.min(1, val)
+    const fullMatrix: number[] = [
+      0.299 + (1 - effective), 0.299, 0.299, 0, 0,
+      0.587, 0.587 + (1 - effective), 0.587, 0, 0,
+      0.114, 0.114, 0.114 + (1 - effective), 0, 0,
+      0, 0, 0, 1, 0
+    ]
+    this.fullColorMatrix = fullMatrix
+    this.applyIntensityToColorFilter(cf)
+    this.syncToStage()
+  }
+
+  /** 失真效果 0~1.0 */
+  distort(val: number): void {
+    this.distortValue = val
+    const cf = this.getOrCreateColorFilter()
+    cf.reset()
+    if (val <= 0) {
+      this.fullColorMatrix = null
+      this.syncToStage()
+      return
+    }
+    const effective = Math.min(1, val)
+    const fullMatrix: number[] = [
+      1 + effective * 0.5, -effective * 0.3, 0, 0, 0,
+      -effective * 0.2, 1 + effective * 0.4, effective * 0.2, 0, 0,
+      0, -effective * 0.3, 1 + effective * 0.5, 0, 0,
+      0, 0, 0, 1, 0
+    ]
+    this.fullColorMatrix = fullMatrix
+    this.applyIntensityToColorFilter(cf)
+    this.syncToStage()
+  }
+
+  /** 迷幻效果 0~1.0 */
+  psychedelic(val: number): void {
+    this.psychedelicValue = val
+    const cf = this.getOrCreateColorFilter()
+    cf.reset()
+    if (val <= 0) {
+      this.fullColorMatrix = null
+      this.syncToStage()
+      return
+    }
+    const effective = Math.min(1, val)
+    const fullMatrix: number[] = [
+      1, effective * 0.8, 0, 0, 0,
+      0, 1, effective * 0.8, 0, 0,
+      effective * 0.8, 0, 1, 0, 0,
+      0, 0, 0, 1, 0
+    ]
+    this.fullColorMatrix = fullMatrix
+    this.applyIntensityToColorFilter(cf)
     this.syncToStage()
   }
 
