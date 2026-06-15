@@ -82,16 +82,25 @@ const PALETTE_ITEMS: PaletteItem[] = [
   {
     type: 'ObjBegin', category: '角色', label: '登场', labelEn: 'Appear', color: '#e17055',
     create: (id) => baseBlock(id, 'ObjBegin', '登场', 'Appear', '#e17055', [
-      mkPort('right', 'value', '模式', 'number'),
-    ], { mode: 0 })
+      mkPort('right', 'value', '可见(可选)', 'boolean'),
+    ], { visible: true })
   },
   {
-    type: 'ObjHide', category: '角色', label: '退场', labelEn: 'Hide', color: '#e17055',
-    create: (id) => baseBlock(id, 'ObjHide', '退场', 'Hide', '#e17055', [], {})
+    type: 'ObjVisible', category: '角色', label: '可见性', labelEn: 'Visibility', color: '#e17055',
+    create: (id) => baseBlock(id, 'ObjVisible', '可见性', 'Visibility', '#e17055', [
+      mkPort('right', 'value', '可见', 'boolean'),
+      mkPort('right', 'value', '时间(ms)', 'number'),
+    ], { able: true, time: '' })
   },
   {
     type: 'ObjEnd', category: '角色', label: '销毁', labelEn: 'Destroy', color: '#e17055',
     create: (id) => baseBlock(id, 'ObjEnd', '销毁', 'Destroy', '#e17055', [], {})
+  },
+  {
+    type: 'Autobegin', category: '角色', label: '自动登场', labelEn: 'Auto Appear', color: '#e17055',
+    create: (id) => baseBlock(id, 'Autobegin', '自动登场', 'Auto Appear', '#e17055', [
+      mkPort('right', 'value', '可见(可选)', 'boolean'),
+    ], { visible: true })
   },
 
   // === 背景 (Background) ===
@@ -105,6 +114,45 @@ const PALETTE_ITEMS: PaletteItem[] = [
   {
     type: 'BgBegin', category: '背景', label: '显示背景', labelEn: 'Show Background', color: '#00cec9',
     create: (id) => baseBlock(id, 'BgBegin', '显示背景', 'Show Background', '#00cec9', [], {})
+  },
+  {
+    type: 'BgFullScreen', category: '背景', label: '全屏黑色', labelEn: 'Full Black', color: '#00cec9',
+    create: (id) => baseBlock(id, 'BgFullScreen', '全屏黑色', 'Full Black', '#00cec9', [], {})
+  },
+  {
+    type: 'BgFullWhite', category: '背景', label: '全屏白色', labelEn: 'Full White', color: '#00cec9',
+    create: (id) => baseBlock(id, 'BgFullWhite', '全屏白色', 'Full White', '#00cec9', [], {})
+  },
+
+  // === 文本 (Text) ===
+  {
+    type: 'CreateText', category: '文本', label: '创建文本', labelEn: 'Create Text', color: '#a29bfe',
+    create: (id) => baseBlock(id, 'CreateText', '创建文本', 'Create Text', '#a29bfe', [
+      mkPort('right', 'value', '文本内容', 'string'),
+      mkPort('right', 'value', '标识(可选)', 'any'),
+    ], { text: '', tagName: '' })
+  },
+  {
+    type: 'TextSize', category: '文本', label: '字号', labelEn: 'Font Size', color: '#a29bfe',
+    create: (id) => baseBlock(id, 'TextSize', '字号', 'Font Size', '#a29bfe', [
+      mkPort('right', 'value', '字号', 'number'),
+    ], { val: 32 })
+  },
+  {
+    type: 'TextBold', category: '文本', label: '加粗', labelEn: 'Bold', color: '#a29bfe',
+    create: (id) => baseBlock(id, 'TextBold', '加粗', 'Bold', '#a29bfe', [], {})
+  },
+  {
+    type: 'TextItalic', category: '文本', label: '斜体', labelEn: 'Italic', color: '#a29bfe',
+    create: (id) => baseBlock(id, 'TextItalic', '斜体', 'Italic', '#a29bfe', [], {})
+  },
+  {
+    type: 'TextUline', category: '文本', label: '下划线', labelEn: 'Underline', color: '#a29bfe',
+    create: (id) => baseBlock(id, 'TextUline', '下划线', 'Underline', '#a29bfe', [], {})
+  },
+  {
+    type: 'TextDeline', category: '文本', label: '删除线', labelEn: 'Strikethrough', color: '#a29bfe',
+    create: (id) => baseBlock(id, 'TextDeline', '删除线', 'Strikethrough', '#a29bfe', [], {})
   },
 
   // === 位置 (Position) ===
@@ -217,6 +265,30 @@ const PALETTE_ITEMS: PaletteItem[] = [
       mkPort('right', 'value', 'B(0~255)', 'number'),
       mkPort('right', 'value', '时间(ms)', 'number'),
     ], { r: 255, g: 255, b: 255, time: 0 })
+  },
+  {
+    type: 'Bw', category: '滤镜效果', label: '黑白', labelEn: 'B&W', color: '#0984e3',
+    create: (id) => baseBlock(id, 'Bw', '黑白', 'B&W', '#0984e3', [
+      mkPort('right', 'value', '强度(0~1)', 'number'),
+      mkPort('right', 'value', '时间(ms)', 'number'),
+      mkPort('right', 'value', '透明度', 'number'),
+    ], { val: 1, time: 0, intensity: 1 })
+  },
+  {
+    type: 'Distort', category: '滤镜效果', label: '失真', labelEn: 'Distort', color: '#0984e3',
+    create: (id) => baseBlock(id, 'Distort', '失真', 'Distort', '#0984e3', [
+      mkPort('right', 'value', '强度(0~1)', 'number'),
+      mkPort('right', 'value', '时间(ms)', 'number'),
+      mkPort('right', 'value', '透明度', 'number'),
+    ], { val: 1, time: 0, intensity: 1 })
+  },
+  {
+    type: 'Psychedelic', category: '滤镜效果', label: '迷幻', labelEn: 'Psychedelic', color: '#0984e3',
+    create: (id) => baseBlock(id, 'Psychedelic', '迷幻', 'Psychedelic', '#0984e3', [
+      mkPort('right', 'value', '强度(0~1)', 'number'),
+      mkPort('right', 'value', '时间(ms)', 'number'),
+      mkPort('right', 'value', '透明度', 'number'),
+    ], { val: 1, time: 0, intensity: 1 })
   },
   {
     type: 'ClearFilters', category: '滤镜效果', label: '清除滤镜', labelEn: 'Clear Filters', color: '#0984e3',
