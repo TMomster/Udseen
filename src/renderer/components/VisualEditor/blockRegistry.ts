@@ -123,6 +123,10 @@ const PALETTE_ITEMS: PaletteItem[] = [
     type: 'BgFullWhite', category: '背景', label: '全屏白色', labelEn: 'Full White', color: '#00cec9',
     create: (id) => baseBlock(id, 'BgFullWhite', '全屏白色', 'Full White', '#00cec9', [], {})
   },
+  {
+    type: 'BgFit', category: '背景', label: '智能缩放', labelEn: 'Smart Fit', color: '#00cec9',
+    create: (id) => baseBlock(id, 'BgFit', '智能缩放', 'Smart Fit', '#00cec9', [], {})
+  },
 
   // === 文本 (Text) ===
   {
