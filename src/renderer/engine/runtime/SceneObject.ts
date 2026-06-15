@@ -25,7 +25,7 @@ export class SceneObject {
   avatorPath: string = ''
   texturePath: string = ''
   sprite: PIXI.Sprite | null = null
-  visible = false
+  _visible = false
   x = 0
   y = 0
   rotation = 0
@@ -122,7 +122,7 @@ export class SceneObject {
   begin(visible = true): void {
     if (!this.sprite) return
     this.sprite.visible = visible
-    this.visible = visible
+    this._visible = visible
     if (visible && !this.sceneContainer.children.includes(this.sprite)) {
       this.sceneContainer.addChild(this.sprite)
     }
@@ -153,7 +153,7 @@ export class SceneObject {
   loopAnim(): void {
     if (!this.sprite) return
     this.sprite.visible = true
-    this.visible = true
+    this._visible = true
     if (!this.sceneContainer.children.includes(this.sprite)) {
       this.sceneContainer.addChild(this.sprite)
     }
@@ -174,7 +174,7 @@ export class SceneObject {
   showFrame(frameNum: number): void {
     if (!this.sprite) return
     this.sprite.visible = true
-    this.visible = true
+    this._visible = true
     if (!this.sceneContainer.children.includes(this.sprite)) {
       this.sceneContainer.addChild(this.sprite)
     }
@@ -214,7 +214,7 @@ export class SceneObject {
         this.frameAnimator.startAnim(false)
       }
     }
-    this.visible = able
+    this._visible = able
   }
 
   private animateToAlpha(target: number, time: number): Promise<void> {
@@ -245,7 +245,7 @@ export class SceneObject {
     this.frameAnimator.clear()
     this.filterController.destroyAll()
     this.destroySprite()
-    this.visible = false
+    this._visible = false
   }
 
   private destroySprite(): void {
