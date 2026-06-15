@@ -146,6 +146,7 @@ function inferType(text: string): string {
   if (text.includes('\n') && /^\w+\n\.\w+\s*\(/.test(text)) return 'ObjectReference'
   // === 新增对象方法调用模式（在 ObjectMethodCall 通用匹配之前）===
   if (/^\w+\.say\s*\(/.test(text)) return 'ObjSay'
+  if (/^\w+\.fit\s*\(/.test(text)) return 'BgFit'
   if (/^\w+\.begin\s*\(/.test(text)) return 'ObjBegin'
   if (/^\w+\.visible\s*\(/.test(text)) return 'ObjVisible'
   if (/^\w+\.autobegin\s*\(/.test(text)) return 'Autobegin'
@@ -410,6 +411,11 @@ function parseBlockData(type: string, text: string): Record<string, unknown> {
     case 'BgFullWhite': {
       const m = text.match(/Background\.full_white\s*\(/)
       if (m) { /* no data needed */ }
+      break
+    }
+    case 'BgFit': {
+      const m = text.match(/^(\w+)\.fit\s*\(/)
+      if (m) data.target = m[1]
       break
     }
     // === 文本属性方法 ===
@@ -791,7 +797,7 @@ const ACTION_TYPES_WITH_TARGET = new Set([
   'ObjLoop', 'AnimPause', 'AnimStop', 'SetSpeed',
   'Blur', 'Brightness', 'Contrast', 'Saturation', 'RgbFilter', 'ClearFilters',
   'Bw', 'Distort', 'Psychedelic',
-  'ObjSay', 'ObjBegin', 'ObjVisible', 'Autobegin', 'ObjEnd', 'BgBegin',
+  'ObjSay', 'ObjBegin', 'ObjVisible', 'Autobegin', 'ObjEnd', 'BgBegin', 'BgFit',
   'AudioPlay', 'AudioLoop', 'AudioPause', 'AudioStop', 'SetVolume', 'AudioFadeOut',
   'FilterApply', 'ObjectMethodCall',
   'TextSize', 'TextBold', 'TextItalic', 'TextUline', 'TextDeline'
@@ -839,6 +845,7 @@ function getBlockLabel(type: string): string {
     'BgBegin': '显示背景',
     'BgFullScreen': '全屏黑色',
     'BgFullWhite': '全屏白色',
+    'BgFit': '智能缩放',
     'SetPos': '移动坐标',
     'MoveBy': '相对移动',
     'Alpha': '透明度',
@@ -1055,6 +1062,7 @@ function buildValuePorts(type: string, data: Record<string, unknown>): BlockPort
       break
     case 'BgFullScreen':
     case 'BgFullWhite':
+    case 'BgFit':
       // 无端口，纯动作块
       break
     case 'TextSize':
