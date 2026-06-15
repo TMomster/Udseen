@@ -22,6 +22,8 @@ export interface ChoiceStyle {
     borderColor: number
     borderAlpha: number
     borderWidth: number
+    /** 悬停时文本颜色 */
+    textColorHover?: string
   }
   buttonDisabled: {
     backgroundColor: number
@@ -29,6 +31,8 @@ export interface ChoiceStyle {
     borderColor: number
     borderAlpha: number
     borderWidth: number
+    /** 禁用时文本颜色 */
+    textColor?: string
   }
   text: {
     fontFamily: string
@@ -38,6 +42,14 @@ export interface ChoiceStyle {
     leftMargin: number
     rightMargin: number
     bottomMargin: number
+    /** 字重：'normal' | 'bold' */
+    fontWeight?: string
+    /** 字体样式：'normal' | 'italic' */
+    fontStyle?: string
+    letterSpacing?: number
+    strokeColor?: string
+    strokeAlpha?: number
+    strokeWidth?: number
   }
 }
 
@@ -61,23 +73,31 @@ const DEFAULT_STYLE: ChoiceStyle = {
     backgroundColorHover: 0x1a1a3a,
     borderColor: 0x3d3d6b,
     borderAlpha: 0.4,
-    borderWidth: 1
+    borderWidth: 1,
+    textColorHover: '#ffffff'
   },
   buttonDisabled: {
     backgroundColor: 0x444444,
     backgroundAlpha: 0.4,
     borderColor: 0x555555,
     borderAlpha: 0.3,
-    borderWidth: 1
+    borderWidth: 1,
+    textColor: '#888888'
   },
   text: {
-    fontFamily: 'Microsoft YaHei, SimHei, sans-serif',
+    fontFamily: 'Source Han Serif SC, Noto Serif SC, SimSun, serif',
     fontSize: 26,
     color: '#e8e8f0',
     textAlign: 'center' as const,
     leftMargin: 16,
     rightMargin: 16,
-    bottomMargin: 0
+    bottomMargin: 0,
+    fontWeight: 'normal',
+    fontStyle: 'normal',
+    letterSpacing: 1,
+    strokeColor: '#000000',
+    strokeAlpha: 0,
+    strokeWidth: 0
   }
 }
 
@@ -190,9 +210,7 @@ export class ChoicePanel {
       }
 
       // 更新文本样式和内容（即使复用也需要更新）
-      text.style.fontFamily = s.text.fontFamily
-      text.style.fontSize = s.text.fontSize
-      text.style.fill = s.text.color
+      this.applyTextStyle(text, s.text, s.text.color)
       text.text = choices[i]
 
       // 根据文本对齐方式设置锚点和位置
@@ -221,6 +239,18 @@ export class ChoicePanel {
     }
     this.app.stage.addChild(this.container)
     this.container.visible = true
+  }
+
+  /** 应用文本样式（含粗体、斜体） */
+  private applyTextStyle(text: PIXI.Text, textStyle: ChoiceStyle['text'], color: string): void {
+    text.style.fontFamily = textStyle.fontFamily
+    text.style.fontSize = textStyle.fontSize
+    text.style.fill = color
+    text.style.fontWeight = textStyle.fontWeight ?? 'normal'
+    text.style.fontStyle = textStyle.fontStyle ?? 'normal'
+    text.style.letterSpacing = textStyle.letterSpacing ?? 0
+    text.style.stroke = textStyle.strokeColor ?? '#000000'
+    text.style.strokeThickness = textStyle.strokeWidth ?? 0
   }
 
   /**
@@ -306,11 +336,16 @@ export class ChoicePanel {
         bg.on('pointerover', () => {
           bg.clear()
           this.drawButton(bg, { ...s.button, backgroundColor: s.button.backgroundColorHover })
+          // 悬停时切换文本颜色
+          if (s.button.textColorHover) {
+            text.style.fill = s.button.textColorHover
+          }
         })
 
         bg.on('pointerout', () => {
           bg.clear()
           this.drawButton(bg, s.button)
+          text.style.fill = s.text.color
         })
 
         bg.on('pointerdown', () => {
@@ -326,9 +361,7 @@ export class ChoicePanel {
       }
 
       // 更新文字样式和内容
-      text.style.fontFamily = s.text.fontFamily
-      text.style.fontSize = s.text.fontSize
-      text.style.fill = s.text.color
+      this.applyTextStyle(text, s.text, s.text.color)
       text.text = choice.text
 
       // 根据文本对齐方式设置锚点和位置
@@ -359,6 +392,14 @@ export class ChoicePanel {
     this.container.visible = true
 
     return Promise.resolve()
+  }
+
+  /**
+   * 设置舞台偏移（用于全屏模式下整体上移）
+   */
+  setStageOffset(x: number, y: number): void {
+    this.container.x = x
+    this.container.y = y
   }
 
   /**
