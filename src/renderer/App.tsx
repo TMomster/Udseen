@@ -3,7 +3,7 @@ import { Toolbar } from './components/Toolbar'
 import { Workbench } from './components/Workbench'
 import { TemplateSettings } from './components/TemplateSettings'
 import { HelpPanel } from './components/HelpPanel/HelpPanel'
-import { useProjectStore } from './store/projectStore'
+import { useProjectStore, syncWindowTitle } from './store/projectStore'
 import { usePreviewStore } from './store/previewStore'
 
 function App(): JSX.Element {
@@ -110,6 +110,13 @@ function App(): JSX.Element {
 
     return () => cleanups.forEach((c) => c())
   }, [newFile, setContent, setFilePath, markClean, setCurrentView])
+
+  // 窗口标题同步：动态显示 "Udseen Editor - {脚本名}"
+  useEffect(() => {
+    syncWindowTitle() // 初始化
+    const unsubscribe = useProjectStore.subscribe(() => syncWindowTitle())
+    return unsubscribe
+  }, [])
 
   // Keyboard shortcuts
   useEffect(() => {
