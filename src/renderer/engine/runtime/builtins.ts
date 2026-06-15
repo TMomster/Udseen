@@ -26,13 +26,15 @@ export function registerBuiltins(runtime: Runtime): void {
   } as unknown as RuntimeValue)
 
   // Global say function (narration)
-  sym.declare('say', (async (text: string) => {
+  sym.declare('say', (async (text: string, audio?: string) => {
     runtime.onLog?.('[say] 调用 onDialogue')
     if (!runtime.onDialogue) {
       runtime.onLog?.('[say] 错误: onDialogue 回调未注册')
       return
     }
-    await runtime.onDialogue(null, String(text))
+    const audioPath = audio !== undefined ? String(audio) : undefined
+    const audioDuration = await runtime.playDialogueAudio(audioPath)
+    await runtime.onDialogue(null, String(text), undefined, audioDuration)
   }) as unknown as RuntimeValue)
 
   // parallel and sequence as callable functions
@@ -52,8 +54,10 @@ export function registerBuiltins(runtime: Runtime): void {
   }) as unknown as RuntimeValue)
 
   // speech - 控制对话框显隐
-  // speech(0) 隐藏对话框，speech(1) 在隐藏时重新显示
+  // speech(0) 隐藏对话框并锁定，后续 say 不再弹出对话框
+  // speech(1) 解除锁定并重新显示对话框
   sym.declare('speech', ((visible: number) => {
+    runtime.speechDisabled = visible === 0
     runtime.onSpeechVisibility?.(visible !== 0)
   }) as unknown as RuntimeValue)
 }
