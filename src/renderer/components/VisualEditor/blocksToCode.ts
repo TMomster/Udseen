@@ -36,11 +36,19 @@ function blockToInlineStr(block: VisualBlock): string {
       return `.say("${text}"${audio ? `, "${audio}"` : ''})`
     }
     case 'ObjBegin': {
-      const modeVal = block.data.mode
-      const mode = typeof modeVal === 'string' || typeof modeVal === 'number' ? String(modeVal) : ''
-      return mode ? `.begin(${mode})` : '.begin()'
+      const visibleVal = block.data.visible ?? block.data.mode
+      const visible = typeof visibleVal === 'string' || typeof visibleVal === 'number' || typeof visibleVal === 'boolean' ? String(visibleVal) : ''
+      return visible ? `.begin(${visible})` : '.begin()'
     }
-    case 'ObjHide': return '.hide()'
+    case 'ObjVisible': {
+      const able = str(block.data, 'able', 'true')
+      const t = str(block.data, 'time', '')
+      return t ? `.visible(${able}, ${t})` : `.visible(${able})`
+    }
+    case 'Autobegin': {
+      const visibleVal2 = str(block.data, 'visible', 'true')
+      return visibleVal2 !== 'true' ? `.autobegin(${visibleVal2})` : '.autobegin()'
+    }
     case 'ObjEnd': return '.end()'
     case 'BgBegin': return '.begin()'
     case 'SetPos': {
@@ -96,6 +104,30 @@ function blockToInlineStr(block: VisualBlock): string {
       const t = str(block.data, 'time', '')
       return `.saturation(${val}${t ? `, ${t}` : ''})`
     }
+    case 'Bw': {
+      const val = str(block.data, 'val', '1')
+      const t = str(block.data, 'time', '')
+      const intensity = str(block.data, 'intensity', '')
+      if (t && intensity) return `.bw(${val}, ${t}, ${intensity})`
+      if (t) return `.bw(${val}, ${t})`
+      return `.bw(${val})`
+    }
+    case 'Distort': {
+      const val = str(block.data, 'val', '1')
+      const t = str(block.data, 'time', '')
+      const intensity = str(block.data, 'intensity', '')
+      if (t && intensity) return `.distort(${val}, ${t}, ${intensity})`
+      if (t) return `.distort(${val}, ${t})`
+      return `.distort(${val})`
+    }
+    case 'Psychedelic': {
+      const val = str(block.data, 'val', '1')
+      const t = str(block.data, 'time', '')
+      const intensity = str(block.data, 'intensity', '')
+      if (t && intensity) return `.psychedelic(${val}, ${t}, ${intensity})`
+      if (t) return `.psychedelic(${val}, ${t})`
+      return `.psychedelic(${val})`
+    }
     case 'RgbFilter': {
       const r = str(block.data, 'r', '0')
       const g = str(block.data, 'g', '0')
@@ -104,6 +136,12 @@ function blockToInlineStr(block: VisualBlock): string {
       return `.rgb(${r}, ${g}, ${b}${t ? `, ${t}` : ''})`
     }
     case 'ClearFilters': return '.clearFilters()'
+    // === 文本属性 (Text Properties) ===
+    case 'TextSize': return `.size(${str(block.data, 'val', '32')})`
+    case 'TextBold': return '.bold()'
+    case 'TextItalic': return '.italic()'
+    case 'TextUline': return '.uline()'
+    case 'TextDeline': return '.deline()'
     case 'AudioPlay': return '.begin()'
     case 'AudioLoop': return '.loop()'
     case 'AudioPause': return '.pause()'
@@ -334,6 +372,17 @@ function blockToCode(
       break
     }
 
+    case 'CreateText': {
+      const text = str(block.data, 'text', '')
+      const tag = str(block.data, 'tagName', '')
+      if (!tag) {
+        codeLines.push(`${ind}// 创建文本（请设置内容）`)
+        break
+      }
+      codeLines.push(`${ind}${tag} = Text.set("${text}", "${tag}")`)
+      break
+    }
+
     // === 对话 ===
     case 'ObjSay': {
       const text = str(block.data, 'text', '')
@@ -344,15 +393,24 @@ function blockToCode(
 
     // === 角色 ===
     case 'ObjBegin': {
-      const modeVal = block.data.mode
-      const mode = typeof modeVal === 'string' || typeof modeVal === 'number' ? String(modeVal) : ''
-      codeLines.push(mode ? `${ind}.begin(${mode})` : `${ind}.begin()`)
+      const visibleVal = block.data.visible ?? block.data.mode
+      const visible = typeof visibleVal === 'string' || typeof visibleVal === 'number' || typeof visibleVal === 'boolean' ? String(visibleVal) : ''
+      codeLines.push(visible ? `${ind}.begin(${visible})` : `${ind}.begin()`)
       break
     }
 
-    case 'ObjHide':
-      codeLines.push(`${ind}.hide()`)
+    case 'ObjVisible': {
+      const able = str(block.data, 'able', 'true')
+      const t = str(block.data, 'time', '')
+      codeLines.push(t ? `${ind}.visible(${able}, ${t})` : `${ind}.visible(${able})`)
       break
+    }
+
+    case 'Autobegin': {
+      const visibleVal2 = str(block.data, 'visible', 'true')
+      codeLines.push(visibleVal2 !== 'true' ? `${ind}.autobegin(${visibleVal2})` : `${ind}.autobegin()`)
+      break
+    }
 
     case 'ObjEnd':
       codeLines.push(`${ind}.end()`)
@@ -361,6 +419,14 @@ function blockToCode(
     // === 背景 ===
     case 'BgBegin':
       codeLines.push(`${ind}.begin()`)
+      break
+
+    case 'BgFullScreen':
+      codeLines.push(`${ind}Background.full_screen()`)
+      break
+
+    case 'BgFullWhite':
+      codeLines.push(`${ind}Background.full_white()`)
       break
 
     // === 位置 ===
@@ -456,6 +522,42 @@ function blockToCode(
       break
     }
 
+    case 'Bw': {
+      const val = str(block.data, 'val', '1')
+      const t = str(block.data, 'time', '')
+      const intensity = str(block.data, 'intensity', '')
+      let bwCode = `${ind}.bw(${val}`
+      if (t || intensity) bwCode += `, ${t || 0}`
+      if (intensity) bwCode += `, ${intensity}`
+      bwCode += ')'
+      codeLines.push(bwCode)
+      break
+    }
+
+    case 'Distort': {
+      const val = str(block.data, 'val', '1')
+      const t = str(block.data, 'time', '')
+      const intensity = str(block.data, 'intensity', '')
+      let distCode = `${ind}.distort(${val}`
+      if (t || intensity) distCode += `, ${t || 0}`
+      if (intensity) distCode += `, ${intensity}`
+      distCode += ')'
+      codeLines.push(distCode)
+      break
+    }
+
+    case 'Psychedelic': {
+      const val = str(block.data, 'val', '1')
+      const t = str(block.data, 'time', '')
+      const intensity = str(block.data, 'intensity', '')
+      let psychCode = `${ind}.psychedelic(${val}`
+      if (t || intensity) psychCode += `, ${t || 0}`
+      if (intensity) psychCode += `, ${intensity}`
+      psychCode += ')'
+      codeLines.push(psychCode)
+      break
+    }
+
     case 'RgbFilter': {
       const r = str(block.data, 'r', '0')
       const g = str(block.data, 'g', '0')
@@ -514,6 +616,23 @@ function blockToCode(
 
     case 'FilterApply':
       codeLines.push(`${ind}.begin()`)
+      break
+
+    // === 文本属性 (Text Properties) ===
+    case 'TextSize':
+      codeLines.push(`${ind}.size(${str(block.data, 'val', '32')})`)
+      break
+    case 'TextBold':
+      codeLines.push(`${ind}.bold()`)
+      break
+    case 'TextItalic':
+      codeLines.push(`${ind}.italic()`)
+      break
+    case 'TextUline':
+      codeLines.push(`${ind}.uline()`)
+      break
+    case 'TextDeline':
+      codeLines.push(`${ind}.deline()`)
       break
 
     // === 控制 ===
