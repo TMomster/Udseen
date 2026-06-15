@@ -3,10 +3,11 @@ import * as PIXI from 'pixi.js'
 import { VIRTUAL_WIDTH, VIRTUAL_HEIGHT } from '../../engine/render/PixiRenderer'
 import { DialogBox, DialogStyle } from '../../engine/render/DialogBox'
 import { ChoicePanel, ChoiceStyle } from '../../engine/render/ChoicePanel'
+import { ControlBar, ControlBarStyle } from '../../engine/render/ControlBar'
 
 // ---------- types ----------
 
-type TemplateCategory = 'dialog' | 'choice'
+type TemplateCategory = 'dialog' | 'choice' | 'controlbar'
 
 interface SectionDef {
   id: string
@@ -23,24 +24,34 @@ interface PropDef {
   min?: number
   max?: number
   step?: number
-  options?: string[]
+  options?: (string | { label: string; value: string })[]
 }
 
 // ---------- section definitions ----------
 
-const COMMON_FONTS = [
-  'Microsoft YaHei, SimHei, sans-serif',
-  'SimSun, serif',
-  'KaiTi, serif',
-  'FangSong, serif',
-  'Arial, sans-serif',
-  'Arial Black, sans-serif',
-  'Georgia, serif',
-  'Times New Roman, serif',
-  'Courier New, monospace',
-  'Verdana, sans-serif',
-  'Impact, sans-serif',
-  'Comic Sans MS, cursive'
+/** 字体选项：{ label: 中文显示名, value: CSS font-family 值 } */
+const COMMON_FONTS: { label: string; value: string }[] = [
+  // ── 置顶：思源宋体 ──
+  { label: '思源宋体',         value: "'Source Han Serif SC','Noto Serif SC',SimSun,serif" },
+  { label: '思源宋体 Light',   value: "'Source Han Serif SC Light','Noto Serif SC ExtraLight',SimSun,serif" },
+  { label: '思源宋体 Heavy',   value: "'Source Han Serif SC Heavy','Noto Serif SC Black',SimSun,serif" },
+  // ── 置顶：思源黑体 ──
+  { label: '思源黑体',         value: "'Source Han Sans SC','Noto Sans SC','Microsoft YaHei',SimHei,sans-serif" },
+  { label: '思源黑体 Light',   value: "'Source Han Sans SC Light','Noto Sans SC ExtraLight','Microsoft YaHei Light',sans-serif" },
+  { label: '思源黑体 Heavy',   value: "'Source Han Sans SC Heavy','Noto Sans SC Black','Microsoft YaHei UI',sans-serif" },
+  // ── 其他常用字体 ──
+  { label: '微软雅黑',         value: "'Microsoft YaHei',SimHei,sans-serif" },
+  { label: '宋体',             value: "SimSun,serif" },
+  { label: '楷体',             value: "KaiTi,serif" },
+  { label: '仿宋',             value: "FangSong,serif" },
+  { label: 'Arial',            value: "Arial,sans-serif" },
+  { label: 'Arial Black',      value: "'Arial Black',sans-serif" },
+  { label: 'Georgia',          value: "Georgia,serif" },
+  { label: 'Times New Roman',  value: "'Times New Roman',serif" },
+  { label: 'Courier New',      value: "'Courier New',monospace" },
+  { label: 'Verdana',          value: "Verdana,sans-serif" },
+  { label: 'Impact',           value: "Impact,sans-serif" },
+  { label: 'Comic Sans MS',    value: "'Comic Sans MS',cursive" },
 ]
 
 const SECTIONS: SectionDef[] = [
@@ -52,6 +63,7 @@ const SECTIONS: SectionDef[] = [
     groupKey: 'box',
     properties: [
       { key: 'height', label: '高度', type: 'number', min: 50, max: 600, step: 10 },
+      { key: 'topMargin', label: '顶部边距（从顶定位）', type: 'number', min: 0, max: 900, step: 10 },
       { key: 'leftMargin', label: '左侧边距', type: 'number', min: 0, max: 500, step: 1 },
       { key: 'rightMargin', label: '右侧边距', type: 'number', min: 0, max: 500, step: 1 },
       { key: 'bottomMargin', label: '底部边距', type: 'number', min: 0, max: 200, step: 1 },
@@ -105,7 +117,12 @@ const SECTIONS: SectionDef[] = [
       { key: 'height', label: '高度', type: 'number', min: 20, max: 200, step: 2 },
       { key: 'leftMargin', label: '左侧边距', type: 'number', min: 0, max: 100, step: 1 },
       { key: 'rightMargin', label: '右侧边距', type: 'number', min: 0, max: 100, step: 1 },
-      { key: 'bottomMargin', label: '底部边距', type: 'number', min: 0, max: 200, step: 1 }
+      { key: 'topMargin', label: '顶部边距', type: 'number', min: 0, max: 200, step: 1 },
+      { key: 'bottomMargin', label: '底部边距', type: 'number', min: 0, max: 200, step: 1 },
+      { key: 'borderRadius', label: '头像圆角', type: 'number', min: 0, max: 100, step: 1 },
+      { key: 'borderColor', label: '描边颜色', type: 'color-int' },
+      { key: 'borderWidth', label: '描边宽度', type: 'number', min: 0, max: 8, step: 1 },
+      { key: 'borderAlpha', label: '描边透明度', type: 'number', min: 0, max: 1, step: 0.01 }
     ]
   },
   {
@@ -116,6 +133,9 @@ const SECTIONS: SectionDef[] = [
     properties: [
       { key: 'fontFamily', label: '字体', type: 'select', options: COMMON_FONTS },
       { key: 'fontSize', label: '字号', type: 'number', min: 12, max: 60, step: 1 },
+      { key: 'fontWeight', label: '字重', type: 'select', options: ['normal', 'bold'] },
+      { key: 'fontStyle', label: '字形', type: 'select', options: ['normal', 'italic'] },
+      { key: 'textAlign', label: '对齐方式', type: 'select', options: ['left', 'center', 'right'] },
       { key: 'color', label: '颜色', type: 'color-hex' },
       { key: 'topMargin', label: '顶部边距', type: 'number', min: 0, max: 200, step: 1 },
       { key: 'leftMargin', label: '左侧边距', type: 'number', min: 0, max: 200, step: 1 },
@@ -136,24 +156,27 @@ const SECTIONS: SectionDef[] = [
     properties: [
       { key: 'fontFamily', label: '字体', type: 'select', options: COMMON_FONTS },
       { key: 'fontSize', label: '字号', type: 'number', min: 12, max: 60, step: 1 },
+      { key: 'fontWeight', label: '字重', type: 'select', options: ['normal', 'bold'] },
+      { key: 'fontStyle', label: '字形', type: 'select', options: ['normal', 'italic'] },
       { key: 'color', label: '颜色', type: 'color-hex' },
+      { key: 'leftMargin', label: '左侧边距', type: 'number', min: 0, max: 100, step: 1 },
       { key: 'letterSpacing', label: '字间距', type: 'number', min: 0, max: 20, step: 0.5 },
       { key: 'strokeColor', label: '描边颜色', type: 'color-hex' },
       { key: 'strokeAlpha', label: '描边透明度', type: 'number', min: 0, max: 1, step: 0.01 },
       { key: 'strokeWidth', label: '描边宽度', type: 'number', min: 0, max: 5, step: 0.5 }
     ]
   },
+  // === 自动播放进度环 ===
   {
-    id: 'indicator-style',
-    label: '继续指示符',
+    id: 'auto-progress-ring',
+    label: '自动播放进度条',
     category: 'dialog',
-    groupKey: 'indicator',
+    groupKey: 'autoProgress',
     properties: [
-      { key: 'fontFamily', label: '字体', type: 'select', options: COMMON_FONTS },
-      { key: 'fontSize', label: '字号', type: 'number', min: 12, max: 50, step: 1 },
-      { key: 'color', label: '颜色', type: 'color-hex' },
-      { key: 'offsetX', label: '水平偏移', type: 'number', min: 0, max: 100, step: 1 },
-      { key: 'offsetY', label: '垂直偏移', type: 'number', min: 0, max: 100, step: 1 }
+      { key: 'size', label: '圆环直径', type: 'number', min: 10, max: 80, step: 2 },
+      { key: 'color', label: '圆环颜色', type: 'color-int' },
+      { key: 'width', label: '圆环粗细', type: 'number', min: 1, max: 8, step: 1 },
+      { key: 'rightMargin', label: '右侧边距', type: 'number', min: 0, max: 100, step: 1 }
     ]
   },
   // === 分支选项 ===
@@ -178,12 +201,13 @@ const SECTIONS: SectionDef[] = [
       { key: 'width', label: '宽度', type: 'number', min: 100, max: 900, step: 10 },
       { key: 'height', label: '高度', type: 'number', min: 20, max: 100, step: 2 },
       { key: 'backgroundColor', label: '背景色', type: 'color-int' },
-      { key: 'backgroundColorHover', label: '背景色（候选时）', type: 'color-int' },
+      { key: 'backgroundColorHover', label: '悬停背景色', type: 'color-int' },
       { key: 'backgroundAlpha', label: '背景透明度', type: 'number', min: 0, max: 1, step: 0.01 },
       { key: 'borderColor', label: '描边颜色', type: 'color-int' },
       { key: 'borderAlpha', label: '描边透明度', type: 'number', min: 0, max: 1, step: 0.01 },
       { key: 'borderWidth', label: '描边宽度', type: 'number', min: 0, max: 10, step: 1 },
       { key: 'borderRadius', label: '边框圆角', type: 'number', min: 0, max: 30, step: 1 },
+      { key: 'textColorHover', label: '悬停文本色', type: 'color-hex' },
       { key: 'buttonGap', label: '按钮间距', type: 'number', min: 0, max: 50, step: 2 }
     ]
   },
@@ -197,7 +221,8 @@ const SECTIONS: SectionDef[] = [
       { key: 'backgroundAlpha', label: '背景透明度', type: 'number', min: 0, max: 1, step: 0.01 },
       { key: 'borderColor', label: '描边颜色', type: 'color-int' },
       { key: 'borderAlpha', label: '描边透明度', type: 'number', min: 0, max: 1, step: 0.01 },
-      { key: 'borderWidth', label: '描边宽度', type: 'number', min: 0, max: 10, step: 1 }
+      { key: 'borderWidth', label: '描边宽度', type: 'number', min: 0, max: 10, step: 1 },
+      { key: 'textColor', label: '文本颜色', type: 'color-hex' }
     ]
   },
   {
@@ -209,6 +234,8 @@ const SECTIONS: SectionDef[] = [
       { key: 'textAlign', label: '文本对齐', type: 'select', options: ['center', 'left', 'right'] },
       { key: 'fontFamily', label: '字体', type: 'select', options: COMMON_FONTS },
       { key: 'fontSize', label: '字号', type: 'number', min: 12, max: 50, step: 1 },
+      { key: 'fontWeight', label: '字重', type: 'select', options: ['normal', 'bold'] },
+      { key: 'fontStyle', label: '字形', type: 'select', options: ['normal', 'italic'] },
       { key: 'color', label: '颜色', type: 'color-hex' },
       { key: 'leftMargin', label: '左侧边距', type: 'number', min: 0, max: 100, step: 1 },
       { key: 'rightMargin', label: '右侧边距', type: 'number', min: 0, max: 100, step: 1 },
@@ -217,6 +244,44 @@ const SECTIONS: SectionDef[] = [
       { key: 'strokeColor', label: '描边颜色', type: 'color-hex' },
       { key: 'strokeAlpha', label: '描边透明度', type: 'number', min: 0, max: 1, step: 0.01 },
       { key: 'strokeWidth', label: '描边宽度', type: 'number', min: 0, max: 5, step: 0.5 }
+    ]
+  },
+  // === 菜单内按钮 ===
+  {
+    id: 'controlbar-bar',
+    label: '菜单栏背景',
+    category: 'controlbar',
+    groupKey: 'bar',
+    properties: [
+      { key: 'height', label: '高度', type: 'number', min: 20, max: 120, step: 2 },
+      { key: 'backgroundColor', label: '背景色', type: 'color-int' },
+      { key: 'backgroundAlpha', label: '背景透明度', type: 'number', min: 0, max: 1, step: 0.01 }
+    ]
+  },
+  {
+    id: 'controlbar-button',
+    label: '菜单栏按钮',
+    category: 'controlbar',
+    groupKey: 'button',
+    properties: [
+      { key: 'autoWidth', label: '按钮宽度', type: 'number', min: 40, max: 200, step: 2 },
+      { key: 'height', label: '按钮高度', type: 'number', min: 16, max: 80, step: 2 },
+      { key: 'borderRadius', label: '按钮圆角', type: 'number', min: 0, max: 20, step: 1 },
+      { key: 'gap', label: '按钮间距', type: 'number', min: 0, max: 30, step: 2 },
+      { key: 'fontFamily', label: '字体', type: 'select', options: COMMON_FONTS },
+      { key: 'fontSize', label: '字号', type: 'number', min: 10, max: 30, step: 1 },
+      { key: 'defaultColor', label: '默认文本色', type: 'color-hex' },
+      { key: 'defaultBackground', label: '默认背景色', type: 'color-int' },
+      { key: 'defaultBackgroundAlpha', label: '默认背景透明度', type: 'number', min: 0, max: 1, step: 0.01 },
+      { key: 'defaultBorderColor', label: '默认描边色', type: 'color-int' },
+      { key: 'defaultBorderAlpha', label: '默认描边透明度', type: 'number', min: 0, max: 1, step: 0.01 },
+      { key: 'defaultFontWeight', label: '默认字重', type: 'select', options: ['normal', 'bold'] },
+      { key: 'activeColor', label: '激活文本色', type: 'color-hex' },
+      { key: 'activeBackground', label: '激活背景色', type: 'color-int' },
+      { key: 'activeBackgroundAlpha', label: '激活背景透明度', type: 'number', min: 0, max: 1, step: 0.01 },
+      { key: 'activeBorderColor', label: '激活描边色', type: 'color-int' },
+      { key: 'activeBorderAlpha', label: '激活描边透明度', type: 'number', min: 0, max: 1, step: 0.01 },
+      { key: 'activeFontWeight', label: '激活字重', type: 'select', options: ['normal', 'bold'] }
     ]
   }
 ]
@@ -261,7 +326,9 @@ interface SchemesIndex {
 export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element {
   const [dialogStyle, setDialogStyle] = useState<StyleData>({})
   const [choiceStyle, setChoiceStyle] = useState<StyleData>({})
+  const [controlbarStyle, setControlbarStyle] = useState<StyleData>({})
   const [activeSection, setActiveSection] = useState<string>('dialog-box-avatar')
+  const [isSchemeLoaded, setIsSchemeLoaded] = useState(false)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [, _setAppPath] = useState<string>('')
@@ -280,6 +347,7 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
   const pixiAppRef = useRef<PIXI.Application | null>(null)
   const dialogBoxRef = useRef<DialogBox | null>(null)
   const choicePanelRef = useRef<ChoicePanel | null>(null)
+  const controlBarRef = useRef<ControlBar | null>(null)
   // 预加载的精灵/纹理引用
   const bgSpriteRef = useRef<PIXI.Sprite | null>(null)
   const charSpriteRef = useRef<PIXI.Sprite | null>(null)
@@ -503,9 +571,11 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
       // 写 dark 方案（旧数据或默认值）
       await window.electronAPI.writeFile(`${darkD}/dialog.json`, JSON.stringify(oldDialog.version ? oldDialog : DEFAULT_DIALOG, null, 2))
       await window.electronAPI.writeFile(`${darkD}/choice.json`, JSON.stringify(oldChoice.version ? oldChoice : DEFAULT_CHOICE, null, 2))
+      await window.electronAPI.writeFile(`${darkD}/controlbar.json`, JSON.stringify(DEFAULT_CONTROLBAR, null, 2))
       // 写 light 方案
       await window.electronAPI.writeFile(`${lightD}/dialog.json`, JSON.stringify(DEFAULT_LIGHT_DIALOG, null, 2))
       await window.electronAPI.writeFile(`${lightD}/choice.json`, JSON.stringify(DEFAULT_LIGHT_CHOICE, null, 2))
+      await window.electronAPI.writeFile(`${lightD}/controlbar.json`, JSON.stringify(DEFAULT_LIGHT_CONTROLBAR, null, 2))
       // 写索引
       const idx: SchemesIndex = {
         version: '1.0',
@@ -520,33 +590,39 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
     }
   }
 
-  /** 从当前方案加载 dialog/choice 样式 */
-  async function loadSchemeStyles(appPath: string, schemeId: string): Promise<{ dialog: StyleData; choice: StyleData }> {
+  /** 从当前方案加载 dialog/choice/controlbar 样式 */
+  async function loadSchemeStyles(appPath: string, schemeId: string): Promise<{ dialog: StyleData; choice: StyleData; controlbar: StyleData }> {
     const sd = `${appPath}/assets/template/schemes`
     let dialog: StyleData = DEFAULT_DIALOG
     let choice: StyleData = DEFAULT_CHOICE
+    let controlbar: StyleData = DEFAULT_CONTROLBAR
     try {
       dialog = JSON.parse(await window.electronAPI.readFile(`${sd}/${schemeId}/dialog.json`))
     } catch { /* 使用默认 */ }
     try {
       choice = JSON.parse(await window.electronAPI.readFile(`${sd}/${schemeId}/choice.json`))
     } catch { /* 使用默认 */ }
-    return { dialog, choice }
+    try {
+      controlbar = JSON.parse(await window.electronAPI.readFile(`${sd}/${schemeId}/controlbar.json`))
+    } catch { /* 使用默认 */ }
+    return { dialog, choice, controlbar }
   }
 
-  /** 将当前样式同步到引擎读取的旧路径 (dialog/style.json + choice/style.json) */
-  async function syncEngineFiles(appPath: string, dialog: StyleData, choice: StyleData): Promise<void> {
+  /** 将当前样式同步到引擎读取的旧路径 (dialog/style.json + choice/style.json + controlbar/style.json) */
+  async function syncEngineFiles(appPath: string, dialog: StyleData, choice: StyleData, controlbar: StyleData): Promise<void> {
     await window.electronAPI.writeFile(`${appPath}/assets/template/dialog/style.json`, JSON.stringify(dialog, null, 2))
     await window.electronAPI.writeFile(`${appPath}/assets/template/choice/style.json`, JSON.stringify(choice, null, 2))
+    await window.electronAPI.writeFile(`${appPath}/assets/template/controlbar/style.json`, JSON.stringify(controlbar, null, 2))
   }
 
   /** 将当前样式保存到指定方案目录 + 同步引擎文件 + 写入索引 */
-  async function saveToScheme(appPath: string, schemeId: string, dialog: StyleData, choice: StyleData, schemeName?: string): Promise<void> {
+  async function saveToScheme(appPath: string, schemeId: string, dialog: StyleData, choice: StyleData, controlbar: StyleData, schemeName?: string): Promise<void> {
     const sd = `${appPath}/assets/template/schemes`
     const dir = `${sd}/${schemeId}`
     await window.electronAPI.writeFile(`${dir}/dialog.json`, JSON.stringify(dialog, null, 2))
     await window.electronAPI.writeFile(`${dir}/choice.json`, JSON.stringify(choice, null, 2))
-    await syncEngineFiles(appPath, dialog, choice)
+    await window.electronAPI.writeFile(`${dir}/controlbar.json`, JSON.stringify(controlbar, null, 2))
+    await syncEngineFiles(appPath, dialog, choice, controlbar)
     // 更新索引中此方案的名称（如果有变更）
     if (schemeName) {
       const raw = await window.electronAPI.readFile(`${sd}/${SCHEMES_JSON}`)
@@ -559,39 +635,63 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
 
   // 默认样式常量
   const DEFAULT_DIALOG: StyleData = {
-    version: '1.2',
+    version: '1.3',
     box: { height: 220, leftMargin: 80, rightMargin: 80, bottomMargin: 30, backgroundColor: 987939, backgroundAlpha: 0.85, borderColor: 2955610, borderAlpha: 0.5, borderWidth: 1, borderRadius: 12, shadowBlur: 20, shadowColor: 0, shadowAlpha: 0.35, shadowOffsetX: 0, shadowOffsetY: 6 },
     nameBox: { width: 160, height: 40, leftMargin: 24, rightMargin: 24, bottomMargin: 8, backgroundColor: 1712698, backgroundAlpha: 0.9, borderColor: 6512563, borderAlpha: 0.4, borderWidth: 1, borderRadius: 6 },
-    avatar: { width: 130, height: 130, leftMargin: 16, rightMargin: 14, bottomMargin: 12 },
-    dialogueText: { fontFamily: 'Microsoft YaHei, SimHei, sans-serif', fontSize: 26, color: '#e8e8f0', leftMargin: 12, rightMargin: 12, bottomMargin: 16, lineHeight: 40, letterSpacing: 1, strokeColor: '#000000', strokeAlpha: 0, strokeWidth: 0 },
-    nameText: { fontFamily: 'Microsoft YaHei, SimHei, sans-serif', fontSize: 18, color: '#d4a843', letterSpacing: 2, strokeColor: '#000000', strokeAlpha: 0, strokeWidth: 0 },
-    indicator: { fontFamily: 'Microsoft YaHei, SimHei, sans-serif', fontSize: 22, color: '#6e6e9e', offsetX: 20, offsetY: 12 }
+    avatar: { width: 130, height: 130, leftMargin: 16, rightMargin: 14, bottomMargin: 12, topMargin: 0, borderRadius: 12, borderColor: 6512563, borderWidth: 2, borderAlpha: 0.5 },
+    dialogueText: { fontFamily: 'Source Han Serif SC, Noto Serif SC, SimSun, serif', fontSize: 26, color: '#e8e8f0', leftMargin: 12, rightMargin: 12, bottomMargin: 16, lineHeight: 40, letterSpacing: 1, strokeColor: '#000000', strokeAlpha: 0, strokeWidth: 0, textAlign: 'left', fontWeight: 'normal', fontStyle: 'normal' },
+    nameText: { fontFamily: 'Source Han Serif SC, Noto Serif SC, SimSun, serif', fontSize: 18, color: '#d4a843', letterSpacing: 2, strokeColor: '#000000', strokeAlpha: 0, strokeWidth: 0, leftMargin: 10, fontWeight: 'bold', fontStyle: 'normal' },
+    autoProgress: { size: 36, color: 0x7c6ff0, width: 3, rightMargin: 16 },
   } as unknown as StyleData
 
   const DEFAULT_CHOICE: StyleData = {
-    version: '1.2',
+    version: '1.3',
     panel: { horizontalAlign: 'center', verticalAlign: 'center', marginX: 0, marginY: 0 },
-    button: { width: 600, height: 64, backgroundColor: 987939, backgroundColorHover: 1712698, backgroundAlpha: 0.85, borderColor: 4010859, borderAlpha: 0.4, borderWidth: 1, borderRadius: 8, buttonGap: 14 },
-    buttonDisabled: { backgroundColor: 4473924, backgroundAlpha: 0.4, borderColor: 5592405, borderAlpha: 0.3, borderWidth: 1 },
-    text: { textAlign: 'center', fontFamily: 'Microsoft YaHei, SimHei, sans-serif', fontSize: 26, color: '#e8e8f0', leftMargin: 16, rightMargin: 16, bottomMargin: 0, letterSpacing: 1, strokeColor: '#000000', strokeAlpha: 0, strokeWidth: 0 }
+    button: { width: 600, height: 64, backgroundColor: 987939, backgroundColorHover: 1712698, backgroundAlpha: 0.85, borderColor: 4010859, borderAlpha: 0.4, borderWidth: 1, borderRadius: 8, buttonGap: 14, textColorHover: '#ffffff' },
+    buttonDisabled: { backgroundColor: 4473924, backgroundAlpha: 0.4, borderColor: 5592405, borderAlpha: 0.3, borderWidth: 1, textColor: '#888888' },
+    text: { textAlign: 'center', fontFamily: 'Source Han Serif SC, Noto Serif SC, SimSun, serif', fontSize: 26, color: '#e8e8f0', leftMargin: 16, rightMargin: 16, bottomMargin: 0, letterSpacing: 1, strokeColor: '#000000', strokeAlpha: 0, strokeWidth: 0, fontWeight: 'normal', fontStyle: 'normal' }
   } as unknown as StyleData
 
   const DEFAULT_LIGHT_DIALOG: StyleData = {
-    version: '1.2',
+    version: '1.3',
     box: { height: 220, leftMargin: 80, rightMargin: 80, bottomMargin: 30, backgroundColor: 16119285, backgroundAlpha: 0.92, borderColor: 13421772, borderAlpha: 0.6, borderWidth: 1, borderRadius: 12, shadowBlur: 15, shadowColor: 0, shadowAlpha: 0.15, shadowOffsetX: 0, shadowOffsetY: 4 },
     nameBox: { width: 160, height: 40, leftMargin: 24, rightMargin: 24, bottomMargin: 8, backgroundColor: 4886745, backgroundAlpha: 0.9, borderColor: 3503805, borderAlpha: 0.3, borderWidth: 0, borderRadius: 6 },
-    avatar: { width: 130, height: 130, leftMargin: 16, rightMargin: 14, bottomMargin: 12 },
-    dialogueText: { fontFamily: 'Microsoft YaHei, SimHei, sans-serif', fontSize: 26, color: '#333333', leftMargin: 12, rightMargin: 12, bottomMargin: 16, lineHeight: 40, letterSpacing: 1, strokeColor: '#000000', strokeAlpha: 0, strokeWidth: 0 },
-    nameText: { fontFamily: 'Microsoft YaHei, SimHei, sans-serif', fontSize: 18, color: '#ffffff', letterSpacing: 2, strokeColor: '#000000', strokeAlpha: 0, strokeWidth: 0 },
-    indicator: { fontFamily: 'Microsoft YaHei, SimHei, sans-serif', fontSize: 22, color: '#999999', offsetX: 20, offsetY: 12 }
+    avatar: { width: 130, height: 130, leftMargin: 16, rightMargin: 14, bottomMargin: 12, topMargin: 0, borderRadius: 12, borderColor: 6710886, borderWidth: 2, borderAlpha: 0.4 },
+    dialogueText: { fontFamily: 'Source Han Serif SC, Noto Serif SC, SimSun, serif', fontSize: 26, color: '#333333', leftMargin: 12, rightMargin: 12, bottomMargin: 16, lineHeight: 40, letterSpacing: 1, strokeColor: '#000000', strokeAlpha: 0, strokeWidth: 0, textAlign: 'left', fontWeight: 'normal', fontStyle: 'normal' },
+    nameText: { fontFamily: 'Source Han Serif SC, Noto Serif SC, SimSun, serif', fontSize: 18, color: '#ffffff', letterSpacing: 2, strokeColor: '#000000', strokeAlpha: 0, strokeWidth: 0, leftMargin: 10, fontWeight: 'bold', fontStyle: 'normal' },
+    autoProgress: { size: 36, color: 0x7c6ff0, width: 3, rightMargin: 16 },
   } as unknown as StyleData
 
   const DEFAULT_LIGHT_CHOICE: StyleData = {
-    version: '1.2',
+    version: '1.3',
     panel: { horizontalAlign: 'center', verticalAlign: 'center', marginX: 0, marginY: 0 },
-    button: { width: 600, height: 64, backgroundColor: 16777215, backgroundColorHover: 15790320, backgroundAlpha: 0.9, borderColor: 13421772, borderAlpha: 0.5, borderWidth: 1, borderRadius: 8, buttonGap: 14 },
-    buttonDisabled: { backgroundColor: 14737632, backgroundAlpha: 0.5, borderColor: 13421772, borderAlpha: 0.3, borderWidth: 1 },
-    text: { textAlign: 'center', fontFamily: 'Microsoft YaHei, SimHei, sans-serif', fontSize: 26, color: '#333333', leftMargin: 16, rightMargin: 16, bottomMargin: 0, letterSpacing: 1, strokeColor: '#000000', strokeAlpha: 0, strokeWidth: 0 }
+    button: { width: 600, height: 64, backgroundColor: 16777215, backgroundColorHover: 15790320, backgroundAlpha: 0.9, borderColor: 13421772, borderAlpha: 0.5, borderWidth: 1, borderRadius: 8, buttonGap: 14, textColorHover: '#000000' },
+    buttonDisabled: { backgroundColor: 14737632, backgroundAlpha: 0.5, borderColor: 13421772, borderAlpha: 0.3, borderWidth: 1, textColor: '#999999' },
+    text: { textAlign: 'center', fontFamily: 'Source Han Serif SC, Noto Serif SC, SimSun, serif', fontSize: 26, color: '#333333', leftMargin: 16, rightMargin: 16, bottomMargin: 0, letterSpacing: 1, strokeColor: '#000000', strokeAlpha: 0, strokeWidth: 0, fontWeight: 'normal', fontStyle: 'normal' }
+  } as unknown as StyleData
+
+  const DEFAULT_CONTROLBAR: StyleData = {
+    bar: { height: 52, backgroundColor: 0, backgroundAlpha: 0.4 },
+    button: {
+      autoWidth: 84, height: 28, borderRadius: 4, gap: 8,
+      fontFamily: 'Source Han Serif SC, Noto Serif SC, SimSun, serif', fontSize: 12,
+      defaultColor: '#cccccc', defaultBackground: 0, defaultBackgroundAlpha: 0.5,
+      defaultBorderColor: 16777215, defaultBorderAlpha: 0.2, defaultFontWeight: 'normal',
+      activeColor: '#000000', activeBackground: 16766720, activeBackgroundAlpha: 0.7,
+      activeBorderColor: 15125952, activeBorderAlpha: 0.3, activeFontWeight: 'bold'
+    }
+  } as unknown as StyleData
+
+  const DEFAULT_LIGHT_CONTROLBAR: StyleData = {
+    bar: { height: 52, backgroundColor: 0, backgroundAlpha: 0.3 },
+    button: {
+      autoWidth: 84, height: 28, borderRadius: 4, gap: 8,
+      fontFamily: 'Source Han Serif SC, Noto Serif SC, SimSun, serif', fontSize: 12,
+      defaultColor: '#333333', defaultBackground: 16777215, defaultBackgroundAlpha: 0.8,
+      defaultBorderColor: 13421772, defaultBorderAlpha: 0.4, defaultFontWeight: 'normal',
+      activeColor: '#000000', activeBackground: 16766720, activeBackgroundAlpha: 0.8,
+      activeBorderColor: 15125952, activeBorderAlpha: 0.5, activeFontWeight: 'bold'
+    }
   } as unknown as StyleData
 
   // Load styles on mount
@@ -610,15 +710,18 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
       const styles = await loadSchemeStyles(resolvedAppPath, idx.activeScheme)
       setDialogStyle(styles.dialog)
       setChoiceStyle(styles.choice)
+      setControlbarStyle(styles.controlbar)
+      setIsSchemeLoaded(true)
       // 同步到引擎文件
-      await syncEngineFiles(resolvedAppPath, styles.dialog, styles.choice)
+      await syncEngineFiles(resolvedAppPath, styles.dialog, styles.choice, styles.controlbar)
     })()
   }, [])
 
   // ---- PixiJS 渲染引擎预览（替换 CSS 预览，确保与演出区域效果一致） ----
 
-  /** 初始化 PixiJS 预览 */
+  /** 初始化 PixiJS 预览（等待方案数据加载完成后再创建） */
   useEffect(() => {
+    if (!isSchemeLoaded) return
     if (!pixiCanvasMountRef.current) return
     const mount = pixiCanvasMountRef.current
 
@@ -642,10 +745,12 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
 
     const dialogBox = new DialogBox(app)
     const choicePanel = new ChoicePanel(app)
+    const controlBar = new ControlBar(app)
 
     pixiAppRef.current = app
     dialogBoxRef.current = dialogBox
     choicePanelRef.current = choicePanel
+    controlBarRef.current = controlBar
 
     // 预加载示例角色、头像、背景纹理
     ;(async () => {
@@ -681,6 +786,7 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
     return () => {
       dialogBox.destroy()
       choicePanel.destroy()
+      if (controlBarRef.current) { controlBarRef.current.destroy(); controlBarRef.current = null }
       // 清理精灵
       if (bgSpriteRef.current) { bgSpriteRef.current.removeFromParent(); bgSpriteRef.current = null }
       if (charSpriteRef.current) { charSpriteRef.current.removeFromParent(); charSpriteRef.current = null }
@@ -690,7 +796,7 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
       dialogBoxRef.current = null
       choicePanelRef.current = null
     }
-  }, [])
+  }, [isSchemeLoaded])
 
   // ---- 样式类型转换（StyleData → DialogStyle / ChoiceStyle） ----
   function toDialogStyle(data: StyleData): DialogStyle {
@@ -699,13 +805,13 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
     const avatar = (data.avatar ?? {}) as Record<string, unknown>
     const dialogueText = (data.dialogueText ?? {}) as Record<string, unknown>
     const nameText = (data.nameText ?? {}) as Record<string, unknown>
-    const indicator = (data.indicator ?? {}) as Record<string, unknown>
     return {
       box: {
         height: (box.height as number) ?? 220,
         leftMargin: (box.leftMargin as number) ?? 80,
         rightMargin: (box.rightMargin as number) ?? 80,
         bottomMargin: (box.bottomMargin as number) ?? 30,
+        topMargin: (box.topMargin as number) ?? undefined,
         backgroundColor: (box.backgroundColor as number) ?? 0x0f0f23,
         backgroundAlpha: (box.backgroundAlpha as number) ?? 0.85,
         borderColor: (box.borderColor as number) ?? 0x2d2d5a,
@@ -736,7 +842,12 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
         height: (avatar.height as number) ?? 130,
         leftMargin: (avatar.leftMargin as number) ?? 16,
         rightMargin: (avatar.rightMargin as number) ?? 14,
-        bottomMargin: (avatar.bottomMargin as number) ?? 12
+        topMargin: (avatar.topMargin as number) ?? 0,
+        bottomMargin: (avatar.bottomMargin as number) ?? 12,
+        borderRadius: (avatar.borderRadius as number) ?? undefined,
+        borderColor: (avatar.borderColor as number) ?? undefined,
+        borderWidth: (avatar.borderWidth as number) ?? undefined,
+        borderAlpha: (avatar.borderAlpha as number) ?? undefined
       },
       dialogueText: {
         fontFamily: (dialogueText.fontFamily as string) ?? 'Microsoft YaHei, SimHei, sans-serif',
@@ -750,7 +861,10 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
         letterSpacing: (dialogueText.letterSpacing as number) ?? 1,
         strokeColor: (dialogueText.strokeColor as string) ?? '#000000',
         strokeAlpha: (dialogueText.strokeAlpha as number) ?? 0,
-        strokeWidth: (dialogueText.strokeWidth as number) ?? 0
+        strokeWidth: (dialogueText.strokeWidth as number) ?? 0,
+        textAlign: (dialogueText.textAlign as 'left' | 'center' | 'right') ?? undefined,
+        fontWeight: (dialogueText.fontWeight as string) ?? undefined,
+        fontStyle: (dialogueText.fontStyle as string) ?? undefined
       },
       nameText: {
         fontFamily: (nameText.fontFamily as string) ?? 'Microsoft YaHei, SimHei, sans-serif',
@@ -759,15 +873,22 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
         letterSpacing: (nameText.letterSpacing as number) ?? 2,
         strokeColor: (nameText.strokeColor as string) ?? '#000000',
         strokeAlpha: (nameText.strokeAlpha as number) ?? 0,
-        strokeWidth: (nameText.strokeWidth as number) ?? 0
+        strokeWidth: (nameText.strokeWidth as number) ?? 0,
+        topMargin: (nameText.topMargin as number) ?? undefined,
+        leftMargin: (nameText.leftMargin as number) ?? undefined,
+        bottomMargin: (nameText.bottomMargin as number) ?? undefined,
+        fontWeight: (nameText.fontWeight as string) ?? undefined,
+        fontStyle: (nameText.fontStyle as string) ?? undefined
       },
-      indicator: {
-        fontFamily: (indicator.fontFamily as string) ?? 'Microsoft YaHei, SimHei, sans-serif',
-        fontSize: (indicator.fontSize as number) ?? 22,
-        color: (indicator.color as string) ?? '#6e6e9e',
-        offsetX: (indicator.offsetX as number) ?? 20,
-        offsetY: (indicator.offsetY as number) ?? 12
-      }
+      autoProgress: (() => {
+        const ap = (data.autoProgress ?? {}) as Record<string, unknown>
+        return {
+          size: (ap.size as number) ?? 36,
+          color: (ap.color as number) ?? 0x7c6ff0,
+          width: (ap.width as number) ?? 3,
+          rightMargin: (ap.rightMargin as number) ?? 16,
+        }
+      })(),
     }
   }
 
@@ -793,14 +914,16 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
         backgroundColorHover: (button.backgroundColorHover as number) ?? 0x1a1a3a,
         borderColor: (button.borderColor as number) ?? 0x3d3d6b,
         borderAlpha: (button.borderAlpha as number) ?? 0.4,
-        borderWidth: (button.borderWidth as number) ?? 1
+        borderWidth: (button.borderWidth as number) ?? 1,
+        textColorHover: (button.textColorHover as string) ?? undefined
       },
       buttonDisabled: {
         backgroundColor: (buttonDisabled.backgroundColor as number) ?? 0x444444,
         backgroundAlpha: (buttonDisabled.backgroundAlpha as number) ?? 0.4,
         borderColor: (buttonDisabled.borderColor as number) ?? 0x555555,
         borderAlpha: (buttonDisabled.borderAlpha as number) ?? 0.3,
-        borderWidth: (buttonDisabled.borderWidth as number) ?? 1
+        borderWidth: (buttonDisabled.borderWidth as number) ?? 1,
+        textColor: (buttonDisabled.textColor as string) ?? undefined
       },
       text: {
         fontFamily: (text.fontFamily as string) ?? 'Microsoft YaHei, SimHei, sans-serif',
@@ -809,14 +932,50 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
         textAlign: (text.textAlign as 'center' | 'left' | 'right') ?? 'center',
         leftMargin: (text.leftMargin as number) ?? 16,
         rightMargin: (text.rightMargin as number) ?? 16,
-        bottomMargin: (text.bottomMargin as number) ?? 0
+        bottomMargin: (text.bottomMargin as number) ?? 0,
+        fontWeight: (text.fontWeight as string) ?? undefined,
+        fontStyle: (text.fontStyle as string) ?? undefined
+      }
+    }
+  }
+
+  function toControlBarStyle(data: StyleData): ControlBarStyle {
+    const bar = (data.bar ?? {}) as Record<string, unknown>
+    const button = (data.button ?? {}) as Record<string, unknown>
+    return {
+      bar: {
+        height: (bar.height as number) ?? 52,
+        backgroundColor: (bar.backgroundColor as number) ?? 0,
+        backgroundAlpha: (bar.backgroundAlpha as number) ?? 0.4,
+      },
+      button: {
+        normalWidth: 72,
+        autoWidth: (button.autoWidth as number) ?? 84,
+        height: (button.height as number) ?? 28,
+        borderRadius: (button.borderRadius as number) ?? 4,
+        gap: (button.gap as number) ?? 8,
+        fontFamily: (button.fontFamily as string) ?? 'Microsoft YaHei, SimHei, sans-serif',
+        fontSize: (button.fontSize as number) ?? 12,
+        defaultColor: (button.defaultColor as string) ?? '#cccccc',
+        defaultBackground: (button.defaultBackground as number) ?? 0,
+        defaultBackgroundAlpha: (button.defaultBackgroundAlpha as number) ?? 0.5,
+        defaultBorderColor: (button.defaultBorderColor as number) ?? 0xffffff,
+        defaultBorderAlpha: (button.defaultBorderAlpha as number) ?? 0.2,
+        defaultFontWeight: (button.defaultFontWeight as string) ?? 'normal',
+        activeColor: (button.activeColor as string) ?? '#000000',
+        activeBackground: (button.activeBackground as number) ?? 0xffcc00,
+        activeBackgroundAlpha: (button.activeBackgroundAlpha as number) ?? 0.7,
+        activeBorderColor: (button.activeBorderColor as number) ?? 0xe6b800,
+        activeBorderAlpha: (button.activeBorderAlpha as number) ?? 0.3,
+        activeFontWeight: (button.activeFontWeight as string) ?? 'bold',
       }
     }
   }
 
   /** 当前预览模式（必须最先声明，被 showAvatarPreview / showNameBox / showDialogueText 引用） */
-  const previewMode: 'dialog' | 'choice' =
-    ['choice-button', 'choice-button-disabled', 'choice-text-style', 'choice-panel'].includes(activeSection) ? 'choice' : 'dialog'
+  const previewMode: 'dialog' | 'choice' | 'controlbar' =
+    ['choice-button', 'choice-button-disabled', 'choice-text-style', 'choice-panel'].includes(activeSection) ? 'choice' :
+    ['controlbar-bar', 'controlbar-button'].includes(activeSection) ? 'controlbar' : 'dialog'
 
   /** 当前预览是否显示头像（仅由按钮开关控制，不随左侧导航变化） */
   const showAvatarPreview = showDialogBoxToggle && showAvatarToggle && previewMode === 'dialog'
@@ -829,8 +988,10 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
 
   // ---- 样式变更时重绘 PixiJS 预览 ----
   useEffect(() => {
+    if (!isSchemeLoaded) return
     const db = dialogBoxRef.current
     const cp = choicePanelRef.current
+    const cb = controlBarRef.current
     if (!db || !cp) return
 
     // 控制背景精灵
@@ -842,8 +1003,13 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
       charSpriteRef.current.visible = showExampleCharacter
     }
 
-    if (previewMode === 'dialog') {
+    if (previewMode === 'controlbar') {
+      db.hide()
       cp.hide()
+      if (cb) cb.preview(toControlBarStyle(controlbarStyle))
+    } else if (previewMode === 'dialog') {
+      cp.hide()
+      if (cb) cb.hide()
       if (showDialogBoxToggle) {
         const ds = toDialogStyle(dialogStyle)
         db.preview(
@@ -878,12 +1044,13 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
     } else {
       cp.preview(toChoiceStyle(choiceStyle))
       db.hide()
+      if (cb) cb.hide()
     }
-  }, [dialogStyle, choiceStyle, previewMode, showAvatarPreview, showDialogBoxToggle, showAvatarToggle, showNameBoxToggle, showExampleCharacter, showExampleBackground])
+  }, [dialogStyle, choiceStyle, controlbarStyle, previewMode, showAvatarPreview, showDialogBoxToggle, showAvatarToggle, showNameBoxToggle, showExampleCharacter, showExampleBackground, isSchemeLoaded])
 
   const activeSectionDef = SECTIONS.find((s) => s.id === activeSection) ?? SECTIONS[0]
 
-  const currentStyle = activeSectionDef.category === 'dialog' ? dialogStyle : choiceStyle
+  const currentStyle = activeSectionDef.category === 'dialog' ? dialogStyle : activeSectionDef.category === 'choice' ? choiceStyle : controlbarStyle
   const currentGroup = currentStyle[activeSectionDef.groupKey] as Record<string, unknown> | undefined ?? {}
 
   const updateProp = useCallback((groupKey: string, propKey: string, value: unknown) => {
@@ -896,8 +1063,10 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
     })
     if (activeSectionDef.category === 'dialog') {
       setDialogStyle(updater)
-    } else {
+    } else if (activeSectionDef.category === 'choice') {
       setChoiceStyle(updater)
+    } else {
+      setControlbarStyle(updater)
     }
   }, [activeSectionDef.category])
 
@@ -910,8 +1079,9 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
       const styles = await loadSchemeStyles(appPath, schemeId)
       setDialogStyle(styles.dialog)
       setChoiceStyle(styles.choice)
+      setControlbarStyle(styles.controlbar)
       setActiveSchemeId(schemeId)
-      await syncEngineFiles(appPath, styles.dialog, styles.choice)
+      await syncEngineFiles(appPath, styles.dialog, styles.choice, styles.controlbar)
       // 更新索引中的 activeScheme
       const raw = await window.electronAPI.readFile(`${schemesDir}/${SCHEMES_JSON}`)
       const idx = JSON.parse(raw) as SchemesIndex
@@ -931,8 +1101,9 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
       const appPath = await window.electronAPI.getAppPath()
       setDialogStyle(DEFAULT_DIALOG as StyleData)
       setChoiceStyle(DEFAULT_CHOICE as StyleData)
+      setControlbarStyle(DEFAULT_CONTROLBAR as StyleData)
       // 保存到当前方案
-      await saveToScheme(appPath, activeSchemeId, DEFAULT_DIALOG as StyleData, DEFAULT_CHOICE as StyleData)
+      await saveToScheme(appPath, activeSchemeId, DEFAULT_DIALOG as StyleData, DEFAULT_CHOICE as StyleData, DEFAULT_CONTROLBAR as StyleData)
       showToast('已重置为默认样式')
     } catch {
       showToast('重置失败')
@@ -945,13 +1116,13 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
     setSaving(true)
     try {
       const appPath = await window.electronAPI.getAppPath()
-      await saveToScheme(appPath, activeSchemeId, dialogStyle, choiceStyle)
+      await saveToScheme(appPath, activeSchemeId, dialogStyle, choiceStyle, controlbarStyle)
       showToast('保存成功')
     } catch {
       showToast('保存失败')
     }
     setSaving(false)
-  }, [dialogStyle, choiceStyle, activeSchemeId, showToast])
+  }, [dialogStyle, choiceStyle, controlbarStyle, activeSchemeId, showToast])
 
   /** 另存为新方案 */
   const handleSaveAs = useCallback(async () => {
@@ -966,6 +1137,7 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
       const dir = `${sd}/${id}`
       await window.electronAPI.writeFile(`${dir}/dialog.json`, JSON.stringify(dialogStyle, null, 2))
       await window.electronAPI.writeFile(`${dir}/choice.json`, JSON.stringify(choiceStyle, null, 2))
+      await window.electronAPI.writeFile(`${dir}/controlbar.json`, JSON.stringify(controlbarStyle, null, 2))
       // 更新索引
       const raw = await window.electronAPI.readFile(`${schemesDir}/${SCHEMES_JSON}`)
       const idx = JSON.parse(raw) as SchemesIndex
@@ -975,7 +1147,7 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
       await window.electronAPI.writeFile(`${schemesDir}/${SCHEMES_JSON}`, JSON.stringify(idx, null, 2))
       setSchemes([...idx.schemes])
       setActiveSchemeId(id)
-      await syncEngineFiles(appPath, dialogStyle, choiceStyle)
+      await syncEngineFiles(appPath, dialogStyle, choiceStyle, controlbarStyle)
       showToast(`已创建新方案「${name.trim()}」`)
     } catch {
       showToast('另存失败')
@@ -1008,8 +1180,9 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
         const styles = await loadSchemeStyles(appPath, 'dark')
         setDialogStyle(styles.dialog)
         setChoiceStyle(styles.choice)
+        setControlbarStyle(styles.controlbar)
         setActiveSchemeId('dark')
-        await syncEngineFiles(appPath, styles.dialog, styles.choice)
+        await syncEngineFiles(appPath, styles.dialog, styles.choice, styles.controlbar)
       }
       showToast(`已删除方案「${schemeName}」`)
     } catch {
@@ -1210,12 +1383,15 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
         )
       }
       case 'select': {
-        const opt = typeof value === 'string' ? value : (def.options?.[0] ?? '')
+        const toOpt = (o: string | { label: string; value: string }): { label: string; value: string } =>
+          typeof o === 'string' ? { label: o, value: o } : o
+        const opts = (def.options ?? []).map(toOpt)
+        const cur = typeof value === 'string' ? value : (opts[0]?.value ?? '')
         return (
           <div key={key} style={rowStyle}>
             <span style={labelStyle}>{def.label}</span>
             <select
-              value={opt}
+              value={cur}
               onChange={(e) => onChange(e.target.value)}
               style={{
                 flex: 1,
@@ -1227,8 +1403,8 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
                 fontSize: 13
               }}
             >
-              {def.options?.map((o) => (
-                <option key={o} value={o}>{o}</option>
+              {opts.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
           </div>
@@ -1465,6 +1641,8 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
           {SECTIONS.filter((s) => s.category === 'dialog').map((s) => sidebarItem(s.id, s.label, s.category))}
           <div style={{ padding: '12px 12px 8px', fontSize: 12, color: '#667', fontWeight: 600, letterSpacing: 1 }}>分支选项</div>
           {SECTIONS.filter((s) => s.category === 'choice').map((s) => sidebarItem(s.id, s.label, s.category))}
+          <div style={{ padding: '12px 12px 8px', fontSize: 12, color: '#667', fontWeight: 600, letterSpacing: 1 }}>菜单内按钮</div>
+          {SECTIONS.filter((s) => s.category === 'controlbar').map((s) => sidebarItem(s.id, s.label, s.category))}
         </div>
 
         {/* Properties Panel */}
@@ -1515,6 +1693,18 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
                 background: 'linear-gradient(135deg, #2a1a3a 0%, #1a2a3a 100%)'
               }}
             >
+            {/* 方案加载中提示 */}
+            {!isSchemeLoaded && (
+              <div style={{
+                position: 'absolute', left: 0, top: 0, width: VIRTUAL_WIDTH, height: VIRTUAL_HEIGHT,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#667', fontSize: 16, fontFamily: 'sans-serif',
+                background: 'linear-gradient(135deg, #2a1a3a 0%, #1a2a3a 100%)',
+                zIndex: 100,
+              }}>
+                正在加载方案&#8230;
+              </div>
+            )}
             {/* PixiJS 实时预览 - 使用 DialogBox / ChoicePanel 引擎组件渲染，与演出区域完全一致 */}
             <div ref={pixiCanvasMountRef} style={{ position: 'absolute', left: 0, top: 0, width: VIRTUAL_WIDTH, height: VIRTUAL_HEIGHT, pointerEvents: 'none' }} />
 
