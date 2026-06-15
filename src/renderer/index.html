@@ -13,4 +13,24 @@
     <div id="root"></div>
     <script type="module" src="./main.tsx"></script>
   </body>
+  <style>
+    /* 全局细滚动条样式 */
+    *::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    *::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    *::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.12);
+      border-radius: 3px;
+    }
+    *::-webkit-scrollbar-thumb:hover {
+      background: rgba(255,255,255,0.2);
+    }
+    *::-webkit-scrollbar-corner {
+      background: transparent;
+    }
+  </style>
 </html>
