@@ -1,12 +1,14 @@
 import { useProjectStore } from '../../store/projectStore'
 import { usePreviewStore } from '../../store/previewStore'
+import { useWorkbenchStore, PanelId } from '../../store/workbenchStore'
 
 /**
  * 顶部工具栏组件
  */
 export function Toolbar(): JSX.Element {
-  const { filePath, isDirty, setFilePath, setContent, markClean, newFile } = useProjectStore()
+  const { setFilePath, setContent, markClean, newFile, editMode, toggleEditMode } = useProjectStore()
   const { isRunning } = usePreviewStore()
+  const { panelVisibility, togglePanel } = useWorkbenchStore()
 
   const handleNew = async () => {
     newFile()
@@ -37,12 +39,6 @@ export function Toolbar(): JSX.Element {
     }
   }
 
-  const handleExportHtml = async () => {
-    if (!window.electronAPI) return
-    const htmlContent = generateExportHtml()
-    await window.electronAPI.exportHtml(htmlContent)
-  }
-
   const handleRun = () => {
     const runFn = (window as unknown as Record<string, unknown>).__udseenRun as (() => void) | undefined
     runFn?.()
@@ -56,21 +52,29 @@ export function Toolbar(): JSX.Element {
   return (
     <div
       style={{
-        height: 40,
-        background: '#252536',
-        borderBottom: '1px solid #333',
+        width: '100%',
+        height: 44,
+        background: 'linear-gradient(135deg, #1e1e32 0%, #252542 50%, #20203a 100%)',
+        borderBottom: '1px solid rgba(124,111,240,0.15)',
+        boxShadow: '0 1px 8px rgba(0,0,0,0.25)',
         display: 'flex',
         alignItems: 'center',
-        padding: '0 12px',
-        gap: 8
+        padding: '0 14px',
+        gap: 6,
+        position: 'relative',
+        zIndex: 200,
+        flexShrink: 0,
+        userSelect: 'none'
       }}
     >
-      {/* File operations */}
-      <ToolbarButton label="新建" shortcut="Ctrl+N" onClick={handleNew} />
-      <ToolbarButton label="打开" shortcut="Ctrl+O" onClick={handleOpen} />
-      <ToolbarButton label="保存" shortcut="Ctrl+S" onClick={handleSave} />
+      {/* Left group: File operations */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <ToolbarButton label="新建" shortcut="Ctrl+N" onClick={handleNew} />
+        <ToolbarButton label="打开" shortcut="Ctrl+O" onClick={handleOpen} />
+        <ToolbarButton label="保存" shortcut="Ctrl+S" onClick={handleSave} />
+      </div>
 
-      <div style={{ width: 1, height: 24, background: '#444', margin: '0 4px' }} />
+      <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.1)', margin: '0 6px', flexShrink: 0 }} />
 
       {/* Run/Stop */}
       <ToolbarButton
@@ -80,17 +84,24 @@ export function Toolbar(): JSX.Element {
         color={isRunning ? '#f44336' : '#4caf50'}
       />
 
-      <div style={{ width: 1, height: 24, background: '#444', margin: '0 4px' }} />
+      <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.1)', margin: '0 6px', flexShrink: 0 }} />
 
-      <ToolbarButton label="导出 HTML" shortcut="Ctrl+E" onClick={handleExportHtml} />
+      {/* 工作区切换按钮 */}
+      <WorkbenchToggle label="资源" visible={panelVisibility.resource} onClick={() => togglePanel('resource')} />
+      <WorkbenchToggle label="编辑" visible={panelVisibility.editor} onClick={() => togglePanel('editor')} />
+      <WorkbenchToggle label="预览" visible={panelVisibility.preview} onClick={() => togglePanel('preview')} />
+
+      <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.1)', margin: '0 6px', flexShrink: 0 }} />
+
+      {/* 可视化/代码切换 */}
+      <ToolbarButton
+        label={editMode === 'visual' ? '代码编辑' : '可视化编辑'}
+        shortcut="Ctrl+E"
+        onClick={toggleEditMode}
+        color={editMode === 'visual' ? '#a29bfe' : '#7c6ff0'}
+      />
 
       <div style={{ flex: 1 }} />
-
-      {/* File info */}
-      <span style={{ color: '#888', fontSize: 11 }}>
-        {filePath ? filePath.split(/[/\\]/).pop() : '未命名脚本'}
-        {isDirty && ' *'}
-      </span>
     </div>
   )
 }
@@ -110,53 +121,73 @@ function ToolbarButton({
     <button
       onClick={onClick}
       style={{
-        padding: '4px 12px',
-        background: 'transparent',
-        border: '1px solid #444',
-        color: color ?? '#ddd',
+        padding: '5px 12px',
+        background: 'rgba(255,255,255,0.03)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        color: color ?? '#b0b0d0',
         cursor: 'pointer',
-        borderRadius: 4,
+        borderRadius: 6,
         fontSize: 12,
         display: 'flex',
         alignItems: 'center',
-        gap: 6
+        gap: 6,
+        transition: 'all 0.15s',
+        textShadow: '0 1px 2px rgba(0,0,0,0.3)'
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
+        e.currentTarget.style.background = 'rgba(124,111,240,0.15)'
+        e.currentTarget.style.borderColor = 'rgba(124,111,240,0.3)'
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background = 'transparent'
+        e.currentTarget.style.background = 'rgba(255,255,255,0.03)'
+        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
       }}
       title={shortcut ? `${label} (${shortcut})` : label}
     >
       {label}
-      {shortcut && <span style={{ color: '#666', fontSize: 10 }}>{shortcut}</span>}
+      {shortcut && <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10 }}>{shortcut}</span>}
     </button>
   )
 }
 
-function generateExportHtml(): string {
-  const { content } = useProjectStore.getState()
-  return `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Udseen 导出游戏</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #1a1a2e; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
-    #game { width: 800px; height: 600px; }
-  </style>
-</head>
-<body>
-  <div id="game"></div>
-  <script>
-    // 此处为导出的 Udseen 运行时和脚本
-    // 完整导出功能将在后续版本实现
-    console.log("Udseen 游戏已加载");
-    const script = ${JSON.stringify(content)};
-  </script>
-</body>
-</html>`
+/** 工作区面板切换按钮 */
+function WorkbenchToggle({
+  label,
+  visible,
+  onClick
+}: {
+  label: string
+  visible: boolean
+  onClick: () => void
+}): JSX.Element {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: '5px 10px',
+        background: visible ? 'rgba(124,111,240,0.15)' : 'rgba(255,255,255,0.03)',
+        border: `1px solid ${visible ? 'rgba(124,111,240,0.3)' : 'rgba(255,255,255,0.08)'}`,
+        color: visible ? '#7c6ff0' : '#888',
+        cursor: 'pointer',
+        borderRadius: 6,
+        fontSize: 11,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 4,
+        transition: 'all 0.15s'
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = 'rgba(124,111,240,0.2)'
+        e.currentTarget.style.borderColor = 'rgba(124,111,240,0.4)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = visible ? 'rgba(124,111,240,0.15)' : 'rgba(255,255,255,0.03)'
+        e.currentTarget.style.borderColor = visible ? 'rgba(124,111,240,0.3)' : 'rgba(255,255,255,0.08)'
+      }}
+      title={`切换${label}面板`}
+    >
+      {label}
+    </button>
+  )
 }
+
