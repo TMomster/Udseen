@@ -11,7 +11,7 @@ export function TimelinePanel(): JSX.Element {
       style={{
         width: '100%',
         height: '100%',
-        background: '#1e1e2e',
+        background: 'linear-gradient(180deg, #1c1c30 0%, #1a1a2a 100%)',
         display: 'flex',
         flexDirection: 'column',
         fontSize: 12
@@ -20,15 +20,16 @@ export function TimelinePanel(): JSX.Element {
       {/* Header */}
       <div
         style={{
-          padding: '6px 12px',
-          borderBottom: '1px solid #333',
+          padding: '7px 14px',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          color: '#aaa'
+          color: '#8888aa',
+          background: 'rgba(0,0,0,0.15)'
         }}
       >
-        <span>运行日志</span>
+        <span style={{ fontWeight: 600, letterSpacing: 0.3 }}>运行日志</span>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {isRunning && (
             <span style={{ color: '#4caf50', fontSize: 11 }}>● 运行中</span>
@@ -36,14 +37,17 @@ export function TimelinePanel(): JSX.Element {
           <button
             onClick={clearLogs}
             style={{
-              background: 'none',
-              border: '1px solid #555',
-              color: '#aaa',
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: '#8888aa',
               cursor: 'pointer',
-              padding: '2px 8px',
-              borderRadius: 3,
-              fontSize: 11
+              padding: '3px 10px',
+              borderRadius: 4,
+              fontSize: 11,
+              transition: 'all 0.12s'
             }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.1)' }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)' }}
           >
             清除
           </button>
