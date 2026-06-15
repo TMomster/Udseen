@@ -51,6 +51,7 @@ function blockToInlineStr(block: VisualBlock): string {
     }
     case 'ObjEnd': return '.end()'
     case 'BgBegin': return '.begin()'
+    case 'BgFit': return '.fit()'
     case 'SetPos': {
       const x = str(block.data, 'x', '0')
       const y = str(block.data, 'y', '0')
@@ -427,6 +428,10 @@ function blockToCode(
 
     case 'BgFullWhite':
       codeLines.push(`${ind}Background.full_white()`)
+      break
+
+    case 'BgFit':
+      codeLines.push(`${ind}.fit()`)
       break
 
     // === 位置 ===
