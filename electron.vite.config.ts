@@ -57,14 +57,20 @@ function assetsPlugin(): Plugin {
       })
     },
     closeBundle() {
-      // 构建完成后，将根 assets/ 复制到输出目录
+      // 构建完成后，将根 assets/ 的 public 和 template 子目录复制到输出目录
+      // 注意：不能直接覆盖 out/renderer/assets/，因为 Vite 已在此目录存放 JS/CSS 构建产物
       if (fs.existsSync(PROJECT_ASSETS)) {
         const dest = resolve(RENDERER_OUT, 'assets')
-        if (fs.existsSync(dest)) {
-          fs.rmSync(dest, { recursive: true })
+        // 仅拷贝 assets/public/ 和 assets/template/ 子目录，不覆盖 Vite 构建的 JS/CSS 文件
+        const subDirs = ['public', 'template']
+        for (const sub of subDirs) {
+          const srcSub = resolve(PROJECT_ASSETS, sub)
+          const destSub = resolve(dest, sub)
+          if (fs.existsSync(srcSub)) {
+            fs.cpSync(srcSub, destSub, { recursive: true })
+            console.log(`[assets-plugin] 已复制 assets/${sub}/ 到 ${destSub}`)
+          }
         }
-        fs.cpSync(PROJECT_ASSETS, dest, { recursive: true })
-        console.log(`[assets-plugin] 已复制 assets/ 到 ${dest}`)
       }
     }
   }
