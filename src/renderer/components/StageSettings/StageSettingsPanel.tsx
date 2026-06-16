@@ -340,13 +340,6 @@ export function StageSettingsPanel({ currentSpeed, onSpeedChange, onClose, fullP
         {activeTab === 'shortcuts' && <TabShortcuts />}
       </div>
 
-      {/* 底部提示 */}
-      <div style={{
-        fontSize: 11, color: '#556', textAlign: 'center',
-        paddingTop: 10, borderTop: '1px solid rgba(100,100,180,0.1)',
-      }}>
-        Esc 关闭设置 | 滚轮 ↑ 对话历史
-      </div>
     </div>
   )
 }

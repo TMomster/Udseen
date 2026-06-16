@@ -50,18 +50,18 @@ export class AssetResolver {
     rawPath: string,
     subDir: string
   ): Promise<{ found: boolean; absPath: string; relativePath: string }> {
-    const candidates: string[] = [
-      // 原始路径
-      `${baseDir}/${subDir}/${rawPath}`,
-      `${baseDir}/${rawPath}`,
+    const candidates: { absPath: string; withSubdir: boolean }[] = [
+      // 原始路径（带子目录优先）
+      { absPath: `${baseDir}/${subDir}/${rawPath}`, withSubdir: true },
+      { absPath: `${baseDir}/${rawPath}`, withSubdir: false },
     ]
 
     // 如果路径可能被 URL 编码，尝试解码
     if (rawPath.includes('%')) {
       try {
         const decoded = decodeURIComponent(rawPath)
-        candidates.push(`${baseDir}/${subDir}/${decoded}`)
-        candidates.push(`${baseDir}/${decoded}`)
+        candidates.push({ absPath: `${baseDir}/${subDir}/${decoded}`, withSubdir: true })
+        candidates.push({ absPath: `${baseDir}/${decoded}`, withSubdir: false })
       } catch { /* ignore */ }
     }
 
@@ -69,24 +69,34 @@ export class AssetResolver {
     if (/[^\x00-\x7F]/.test(rawPath)) {
       try {
         const encoded = encodeURI(rawPath)
-        candidates.push(`${baseDir}/${subDir}/${encoded}`)
-        candidates.push(`${baseDir}/${encoded}`)
+        candidates.push({ absPath: `${baseDir}/${subDir}/${encoded}`, withSubdir: true })
+        candidates.push({ absPath: `${baseDir}/${encoded}`, withSubdir: false })
       } catch { /* ignore */ }
     }
 
-    for (const absPath of candidates) {
+    for (const { absPath, withSubdir } of candidates) {
       const normalized = absPath.replace(/\\/g, '/')
       try {
         const exists = await (window as any).electronAPI?.fileExists?.(normalized)
         if (exists) {
-          // 构造相对路径（与原始 rawPath 对齐，仅保留 subDir/rawPath 部分）
-          const relPath = `assets/public/${subDir}/${rawPath}`
+          // relPath 与文件实际存放位置对齐：若文件在 subDir 下则用 subDir 前缀，否则用 rawPath 自身
+          const relPath = withSubdir
+            ? `assets/public/${subDir}/${rawPath}`
+            : `assets/public/${rawPath}`
           return { found: true, absPath: normalized, relativePath: relPath }
         }
       } catch { /* continue */ }
     }
 
     return { found: false, absPath: '', relativePath: `assets/public/${subDir}/${rawPath}` }
+  }
+
+  /** 对路径中的非 ASCII 部分进行 URL 编码，确保 Howl/HTMLAudioElement 能正确加载 */
+  private encodePathForUrl(path: string): string {
+    // data URL 不需要编码
+    if (path.startsWith('data:')) return path
+    const parts = path.split('/')
+    return parts.map(p => /[^\x00-\x7F]/.test(p) ? encodeURI(p) : p).join('/')
   }
 
   async resolveAssetPath(rawPath: string, factoryName: string | null): Promise<string> {
@@ -100,7 +110,7 @@ export class AssetResolver {
     // 1) 主资源目录搜索（含路径变体）
     if (this.publicDir) {
       const result = await this.tryFindPath(this.publicDir, rawPath, subDir)
-      if (result.found) return result.relativePath
+      if (result.found) return this.encodePathForUrl(result.relativePath)
     }
 
     // 2) 虚拟路径搜索（含路径变体）
@@ -116,7 +126,7 @@ export class AssetResolver {
     }
 
     // 3) 都找不到，返回相对路径（加载时会使用占位纹理）
-    return defaultRelativePath
+    return this.encodePathForUrl(defaultRelativePath)
   }
 
   /**

@@ -5,7 +5,6 @@ import { TemplateSettings } from './components/TemplateSettings'
 import { HelpPanel } from './components/HelpPanel/HelpPanel'
 import { Settings } from './components/Settings/Settings'
 import { SplashScreen } from './components/SplashScreen/SplashScreen'
-import { UdseenPicman } from './components/UdseenPicman/UdseenPicman'
 
 import { useProjectStore, syncWindowTitle } from './store/projectStore'
 import { usePreviewStore } from './store/previewStore'
@@ -367,12 +366,6 @@ function App(): JSX.Element {
           <HelpPanel onBack={() => setCurrentView('editor')} />
         ) : currentView === 'settings' ? (
           <Settings onBack={() => setCurrentView('editor')} />
-        ) : currentView === 'image-editor' ? (
-          <UdseenPicman
-            imagePath={useProjectStore.getState().imageEditorPath || ''}
-            imageName={useProjectStore.getState().imageEditorName || ''}
-            onClose={() => useProjectStore.getState().closeImageEditor()}
-          />
         ) : (
           <>
             {!stageFullscreen && <Toolbar />}

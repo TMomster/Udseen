@@ -19,7 +19,7 @@ function assetsPlugin(): Plugin {
     configureServer(server) {
       server.middlewares.use('/assets', (req, res, next) => {
         const url = (req.url || '').split('?')[0]
-        const safePath = url.replace(/\.\.\//g, '').replace(/\.\.\\/g, '').replace(/^\/+/, '')
+        const safePath = decodeURIComponent(url.replace(/\.\.\//g, '').replace(/\.\.\\/g, '').replace(/^\/+/, ''))
         const filePath = resolve(PROJECT_ASSETS, safePath)
         try {
           if (fs.statSync(filePath).isFile()) {

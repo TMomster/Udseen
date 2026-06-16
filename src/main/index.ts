@@ -80,9 +80,14 @@ function loadConfig(): AppConfig {
 
 const appConfig = loadConfig()
 
-// 仅当用户关闭 GPU 加速时才设置 --disable-gpu
+// 用户关闭 GPU 加速时完全禁用 GPU（包括 WebGL）
 if (!appConfig.gpuAcceleration) {
   app.commandLine.appendSwitch('disable-gpu')
+} else {
+  // 启用 GPU 加速时：防止 GPU 进程因超时被反复杀死，降低 command_buffer 错误的概率
+  app.commandLine.appendSwitch('disable-gpu-process-crash-limit')
+  // 允许 WebGL 在所有 GPU 上运行（包括被 Chromium blocklist 屏蔽的硬件）
+  app.commandLine.appendSwitch('ignore-gpu-blocklist')
 }
 
 let mainWindow: BrowserWindow | null = null
@@ -114,22 +119,36 @@ function createWindow(): void {
     }, 80)
   })
 
+  /** 安全地发送 IPC 消息到渲染进程，在进程已销毁或渲染帧已释放时静默跳过 */
+  function safeSend(channel: string, ...args: unknown[]) {
+    if (!mainWindow) return
+    try {
+      if (!mainWindow.webContents.isDestroyed()) {
+        mainWindow.webContents.send(channel, ...args)
+      }
+    } catch {
+      // 渲染帧可能在 isDestroyed() 检查之后才被释放，忽略此类错误
+    }
+  }
+
   // 拦截关闭事件：先通知渲染进程播放退出动画
   mainWindow.on('close', (e) => {
     if (!isClosingConfirmed) {
       e.preventDefault()
-      mainWindow?.webContents.send('app:beforeClose')
+      safeSend('app:beforeClose')
     }
   })
 
-  // 渲染进程崩溃时记录日志并弹窗提示
-  mainWindow.webContents.on('crashed', () => {
-    console.error('[Udseen] 渲染进程崩溃！')
-    const crashLog = `[${new Date().toISOString()}] Renderer process crashed!`
+  // 渲染进程崩溃/异常退出时记录日志并弹窗提示
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error(`[Udseen] 渲染进程异常退出: ${details.reason}`)
+    const crashLog = `[${new Date().toISOString()}] Renderer process ${details.reason} (exitCode=${details.exitCode})`
     try {
       fs.appendFileSync(join(configDir, 'crash.log'), crashLog + '\n')
     } catch { /* ignore */ }
     dialog.showErrorBox('程序错误', '渲染进程异常退出，程序将关闭。\n请尝试重新启动或取消 GPU 加速。')
+    // 标记 close 已确认，避免 app.quit() 触发的 close 事件再尝试发送 IPC
+    isClosingConfirmed = true
     app.quit()
   })
 
@@ -156,10 +175,10 @@ function createWindow(): void {
 
   // 全屏状态变更时通知渲染进程
   mainWindow.on('enter-full-screen', () => {
-    mainWindow?.webContents.send('app:fullscreenChanged', true)
+    safeSend('app:fullscreenChanged', true)
   })
   mainWindow.on('leave-full-screen', () => {
-    mainWindow?.webContents.send('app:fullscreenChanged', false)
+    safeSend('app:fullscreenChanged', false)
   })
 }
 

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useAssetStore } from '../../store/assetStore'
 import { useSettingsStore } from '../../store/settingsStore'
-import { useProjectStore } from '../../store/projectStore'
+
 
 interface FileEntry {
   name: string
@@ -611,12 +611,6 @@ export function ResourceBrowser({ onResourceDrag }: ResourceBrowserProps): JSX.E
                     <MenuItem label="在设备资源管理器打开" onClick={() => {
                       closeContextMenu()
                       window.electronAPI?.showItemInFolder(contextMenu.entry!.fullPath)
-                    }} />
-                  )}
-                  {!contextMenu.entry.isDirectory && isImageFile(contextMenu.entry.name) && (
-                    <MenuItem label="编辑" onClick={() => {
-                      closeContextMenu()
-                      useProjectStore.getState().openImageEditor(contextMenu.entry!.fullPath, contextMenu.entry!.name)
                     }} />
                   )}
                   <MenuItem label="重命名" onClick={() => startRename(contextMenu.entry!)} />

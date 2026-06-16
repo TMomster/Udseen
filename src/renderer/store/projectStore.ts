@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type ViewMode = 'editor' | 'template-settings' | 'help' | 'settings' | 'image-editor'
+export type ViewMode = 'editor' | 'template-settings' | 'help' | 'settings'
 export type EditMode = 'code' | 'visual'
 
 interface ProjectState {
@@ -32,10 +32,6 @@ interface ProjectState {
   calibrationOffsetY: number
   /** 资源预览开关：鼠标悬停于脚本中的资源路径时显示预览气泡 */
   resourcePreview: boolean
-  /** 图片编辑器：当前编辑的文件路径 */
-  imageEditorPath: string | null
-  /** 图片编辑器：当前编辑的文件名 */
-  imageEditorName: string
 
   // Actions
   setFilePath: (path: string | null) => void
@@ -52,8 +48,7 @@ interface ProjectState {
   setCameraOffset: (x: number, y: number) => void
   setCalibrationOffset: (x: number, y: number) => void
   setResourcePreview: (enabled: boolean) => void
-  openImageEditor: (path: string, name: string) => void
-  closeImageEditor: () => void
+
 }
 
 const DEFAULT_CONTENT = 
@@ -78,8 +73,7 @@ export const useProjectStore = create<ProjectState>((set) => ({
   calibrationOffsetX: 0,
   calibrationOffsetY: -55,
   resourcePreview: true,
-  imageEditorPath: null,
-  imageEditorName: '',
+
 
   setFilePath: (filePath) => set({ filePath }),
 
@@ -114,11 +108,7 @@ export const useProjectStore = create<ProjectState>((set) => ({
 
   setResourcePreview: (resourcePreview) => set({ resourcePreview }),
 
-  openImageEditor: (imageEditorPath, imageEditorName) =>
-    set({ imageEditorPath, imageEditorName, currentView: 'image-editor' }),
 
-  closeImageEditor: () =>
-    set({ imageEditorPath: null, imageEditorName: '', currentView: 'editor' })
 }))
 
 /** 根据当前 store 状态同步更新窗口标题 */

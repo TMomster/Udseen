@@ -97,6 +97,7 @@ export class AudioManager {
           src: [resolvedPath],
           loop: false,
           volume: 1,
+          html5: true,
           onload: () => {
             resolve(howl.duration() * 1000)
           },

@@ -70,7 +70,7 @@ export class PixiRenderer implements IRenderer {
       // autoDensity: false 表示我们完全控制 CSS 尺寸，PIXI 不会覆盖我们的 CSS 设置
       resolution: Math.min(window.devicePixelRatio || 1, 2),
       autoDensity: false,
-      powerPreference: 'default'
+      powerPreference: 'high-performance'
     })
 
     // 启用舞台子节点排序，确保 DialogBox/ChoicePanel 能通过 zIndex 或添加顺序保持在顶层

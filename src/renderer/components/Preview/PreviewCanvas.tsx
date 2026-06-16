@@ -113,8 +113,10 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
   const [showDebug, setShowDebug] = useState(false)
   /** 舞台设置面板开关（Esc 切换，全屏下使用） */
   const [showStageSettings, setShowStageSettings] = useState(false)
+  const [settingsLeaving, setSettingsLeaving] = useState(false)
   /** 对话历史面板开关（鼠标滚轮上滑打开） */
   const [showDialogueHistory, setShowDialogueHistory] = useState(false)
+  const [historyLeaving, setHistoryLeaving] = useState(false)
   /** 调试覆盖层 FPS 计数器（3秒滑动平均，每秒刷新） */
   const [debugFps, setDebugFps] = useState(0)
   /** 调试覆盖层 FPS 计数器（10秒平均，每10秒刷新） */
@@ -376,18 +378,37 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
         const handleKeyDown = (e: KeyboardEvent): void => {
           if (!previewFocusedRef.current && !document.fullscreenElement && !showDialogueHistoryRef.current && !stageSettingsOpenRef.current) return
 
-          // 对话历史面板打开时，Esc 关闭面板
+          // 对话历史面板打开时，Esc 关闭面板（带退出动画）
           if (e.key === 'Escape') {
             if (showDialogueHistoryRef.current) {
               e.preventDefault()
-              showDialogueHistoryRef.current = false
-              setShowDialogueHistory(false)
+              if (!historyLeavingRef.current) {
+                historyLeavingRef.current = true
+                setHistoryLeaving(true)
+                setTimeout(() => {
+                  showDialogueHistoryRef.current = false
+                  historyLeavingRef.current = false
+                  setShowDialogueHistory(false)
+                  setHistoryLeaving(false)
+                }, 200)
+              }
+              return
+            }
+            if (stageSettingsOpenRef.current) {
+              e.preventDefault()
+              if (!settingsLeaving) {
+                setSettingsLeaving(true)
+                setTimeout(() => {
+                  stageSettingsOpenRef.current = false
+                  setShowStageSettings(false)
+                  setSettingsLeaving(false)
+                }, 200)
+              }
               return
             }
             e.preventDefault()
-            const newVal = !stageSettingsOpenRef.current
-            stageSettingsOpenRef.current = newVal
-            setShowStageSettings(newVal)
+            stageSettingsOpenRef.current = true
+            setShowStageSettings(true)
             return
           }
 
@@ -451,10 +472,10 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
         // 仅在演出区域拥有焦点或全屏时生效
         const handleWheel = (e: WheelEvent): void => {
           if (!previewFocusedRef.current && !document.fullscreenElement) return
-          if (!dialogBox.isDialogShowing()) return
           if (e.deltaY < 0) {
             // 滚轮向上 → 打开对话历史面板（如果尚未打开）
             if (!showDialogueHistoryRef.current) {
+              historyLeavingRef.current = false
               showDialogueHistoryRef.current = true
               setShowDialogueHistory(true)
             }
@@ -616,6 +637,9 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
   useEffect(() => {
     showDialogueHistoryRef.current = showDialogueHistory
   }, [showDialogueHistory])
+
+  // leaving refs 用于键盘事件屏蔽
+  const historyLeavingRef = useRef(false)
 
   // UI 显隐变动时的同步 effect（右键或 store 外部修改后生效）
   useEffect(() => {
@@ -785,6 +809,8 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
   const handleStop = useCallback(() => {
     if (runtimeRef.current) {
       runtimeRef.current.stop()
+      // 清除对话历史
+      dialogBoxRef.current?.clearHistory()
       // 清除编辑器行高亮、卡片高亮和错误状态
       useProjectStore.getState().setExecutionLine(null)
       useProjectStore.getState().setExecutionBlockId(null)
@@ -883,34 +909,54 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
         </div>
 
       {/* === 对话历史面板（鼠标滚轮上滑打开） === */}
-      {showDialogueHistory && (
-        <DialogueHistoryPanel
-          history={dialogBoxRef.current?.getHistory() ?? []}
-          currentIndex={dialogBoxRef.current?.getHistoryIndex() ?? -1}
-          onSelect={(index) => {
-            showDialogueHistoryRef.current = false
-            setShowDialogueHistory(false)
-            dialogBoxRef.current?.goToHistory(index)
+      {(showDialogueHistory || historyLeaving) && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 400,
+            animation: historyLeaving ? 'overlayFadeOut 0.2s ease forwards' : 'overlayFadeIn 0.2s ease',
           }}
-          onClose={() => {
-            showDialogueHistoryRef.current = false
-            setShowDialogueHistory(false)
-          }}
-          onPlayAudio={(audioPath) => {
-            // 使用简单 HTML5 Audio 播放历史音频片段
-            const audio = new Audio(audioPath)
-            audio.play().catch(() => {})
-          }}
-        />
+        >
+          <DialogueHistoryPanel
+            history={dialogBoxRef.current?.getHistory() ?? []}
+            currentIndex={dialogBoxRef.current?.getHistoryIndex() ?? -1}
+            onSelect={(index) => {
+              showDialogueHistoryRef.current = false
+              historyLeavingRef.current = false
+              setShowDialogueHistory(false)
+              setHistoryLeaving(false)
+              dialogBoxRef.current?.goToHistory(index)
+            }}
+            onClose={() => {
+              if (!historyLeavingRef.current) {
+                historyLeavingRef.current = true
+                setHistoryLeaving(true)
+                setTimeout(() => {
+                  showDialogueHistoryRef.current = false
+                  historyLeavingRef.current = false
+                  setShowDialogueHistory(false)
+                  setHistoryLeaving(false)
+                }, 200)
+              }
+            }}
+            onPlayAudio={(audioPath) => {
+              // 使用简单 HTML5 Audio 播放历史音频片段
+              const audio = new Audio(audioPath)
+              audio.play().catch(() => {})
+            }}
+          />
+        </div>
       )}
 
       {/* === ESC 全页面菜单（Esc 切换） === */}
-      {showStageSettings && (
+      {(showStageSettings || settingsLeaving) && (
         <div
           style={{
             position: 'absolute',
             inset: 0,
             zIndex: 300,
+            animation: settingsLeaving ? 'overlayFadeOut 0.2s ease forwards' : 'overlayFadeIn 0.2s ease',
           }}
         >
           <StageSettingsPanel
@@ -921,8 +967,14 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
               dialogBoxRef.current?.setTypingSpeed(speed)
             }}
             onClose={() => {
-              stageSettingsOpenRef.current = false
-              setShowStageSettings(false)
+              if (!settingsLeaving) {
+                setSettingsLeaving(true)
+                setTimeout(() => {
+                  stageSettingsOpenRef.current = false
+                  setShowStageSettings(false)
+                  setSettingsLeaving(false)
+                }, 200)
+              }
             }}
             fullPage
           />
@@ -1145,6 +1197,16 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
         </div>
       )}
 
+      <style>{`
+        @keyframes overlayFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes overlayFadeOut {
+          from { opacity: 1; }
+          to { opacity: 0; }
+        }
+      `}</style>
       </div>{/* ── 预览内部容器结束 ── */}
     </div>
   )

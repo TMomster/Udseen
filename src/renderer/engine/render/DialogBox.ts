@@ -834,6 +834,14 @@ export class DialogBox {
   }
 
   /**
+   * 清空对话历史
+   */
+  clearHistory(): void {
+    this.dialogHistory = []
+    this.historyIndex = -1
+  }
+
+  /**
    * 获取完整对话历史
    */
   getHistory(): HistoryEntry[] {
