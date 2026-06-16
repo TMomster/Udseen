@@ -138,7 +138,7 @@ export class Runtime {
   onChoice?: (choices: { text: string; action: () => void | Promise<void> }[]) => void
   onStateChange?: (running: boolean) => void
   /** 对话回调 - 显示对话文本，返回 Promise 在用户点击后 resolve */
-  onDialogue?: (speaker: string | null, text: string, avator?: string, audioDurationMs?: number) => Promise<void>
+  onDialogue?: (speaker: string | null, text: string, avator?: string, audioDurationMs?: number, audioPath?: string) => Promise<void>
   /** 警告回调 - 用于在日志区域显示黄色警告 */
   onWarning?: (msg: string) => void
   /** 对话框显隐回调 - speech(0) 隐藏, speech(1) 重新显示 */
@@ -396,38 +396,6 @@ export class Runtime {
       audioObjects: Array.from(this.audioObjects.values()).map(obj => obj.scriptId || obj.displayName || obj.id),
       filterObjects: Array.from(this.filterObjects.keys()),
     }
-  }
-
-  /**
-   * 创建纯色背景（如全屏黑/全屏白）
-   * 生成一个覆盖全屏的纯色精灵，zIndex 设为极高值确保在最顶层
-   */
-  private createSolidBackground(id: string, color: number, name: string): SceneObject {
-    const objId = this.assetResolver.generateObjectId()
-    const sceneObj = new SceneObject(objId, this.app, this.sceneContainer)
-    sceneObj.objectType = 'Background'
-    sceneObj.scriptId = ''
-    sceneObj.displayName = name
-
-    const width = this.app.screen.width
-    const height = this.app.screen.height
-    const graphics = new PIXI.Graphics()
-    graphics.beginFill(color)
-    graphics.drawRect(0, 0, width, height)
-    graphics.endFill()
-    const texture = this.app.renderer.generateTexture(graphics)
-    graphics.destroy()
-    const sprite = new PIXI.Sprite(texture)
-    sprite.x = width / 2
-    sprite.y = height / 2
-    sprite.zIndex = 10000  // 极高层级，确保覆盖所有其他元素
-    sprite.visible = false
-
-    sceneObj.sprite = sprite
-    sceneObj.filterController.applyFilters()
-    this.registerSceneObject(objId, sceneObj)
-    this.log(`定义${name}背景 ${objId}`)
-    return sceneObj
   }
 
   // ---- Internal Execution ----
@@ -689,7 +657,7 @@ export class Runtime {
 
       // Resolve asset path
       const rawPath = args[0] as string
-      const resolvedPath = this.assetResolver.resolveAssetPath(rawPath, factoryName)
+      const resolvedPath = await this.assetResolver.resolveAssetPath(rawPath, factoryName)
 
       // Extract display name (second arg to set: set(path, name))
       const displayName = args.length >= 2 && typeof args[1] === 'string'
@@ -746,7 +714,7 @@ export class Runtime {
       if (args.length >= 3 && typeof args[2] === 'string') {
         const avatorPath = args[2] as string
         if (avatorPath && factoryName === 'Character') {
-          const resolvedAvatorPath = this.assetResolver.resolveAssetPath(avatorPath, factoryName)
+          const resolvedAvatorPath = await this.assetResolver.resolveAssetPath(avatorPath, factoryName)
           sceneObj.avatorPath = resolvedAvatorPath
         }
       }
@@ -763,18 +731,9 @@ export class Runtime {
       return
     }
 
-    // Handle factory non-set method calls (e.g., Background.full_screen())
+    // Factory non-set method calls are not supported; only .set() is available
     if (isFactory(objValue)) {
-      const factoryName = objValue.name
-      if (factoryName === 'Background' && methodName === 'full_screen') {
-        this.createSolidBackground('full_screen', 0x000000, '全屏黑')
-        return
-      }
-      if (factoryName === 'Background' && methodName === 'full_white') {
-        this.createSolidBackground('full_white', 0xffffff, '全屏白')
-        return
-      }
-      throw new Error(`工厂 '${factoryName}' 没有方法 '${methodName}'`)
+      throw new Error(`工厂 '${objValue.name}' 没有方法 '${methodName}'`)
     }
 
     // Delegate to ObjectMethodDispatcher (O(1) method table lookup)
@@ -796,7 +755,7 @@ export class Runtime {
       onError: this.onError,
       onExecutionError: this.onExecutionError,
       onWarning: this.onWarning,
-      resolveAssetPath: (raw, factory) => this.assetResolver.resolveAssetPath(raw, factory)
+      resolveAssetPath: async (raw, factory) => this.assetResolver.resolveAssetPath(raw, factory)
     })
   }
 
@@ -934,7 +893,7 @@ export class Runtime {
 
           // Resolve asset path
           const rawPath = args[0] as string
-          const resolvedPath = this.assetResolver.resolveAssetPath(rawPath, factoryName)
+          const resolvedPath = await this.assetResolver.resolveAssetPath(rawPath, factoryName)
 
           // Extract display name (second arg to set: set(path, name))
           const displayName = args.length >= 2 && typeof args[1] === 'string'
@@ -973,7 +932,7 @@ export class Runtime {
           if (args.length >= 3 && typeof args[2] === 'string') {
             const avatorPath = args[2] as string
             if (avatorPath && factoryName === 'Character') {
-              const resolvedAvatorPath = this.assetResolver.resolveAssetPath(avatorPath, factoryName)
+              const resolvedAvatorPath = await this.assetResolver.resolveAssetPath(avatorPath, factoryName)
               sceneObj.avatorPath = resolvedAvatorPath
             }
           }
@@ -989,16 +948,9 @@ export class Runtime {
           return sceneObj
         }
 
-        // Factory non-set method calls (e.g., Background.full_screen())
+        // Factory non-set method calls are not supported in expressions
         if (isFactory(objValue)) {
-          const factoryName = objValue.name
-          if (factoryName === 'Background' && mc.method === 'full_screen') {
-            return this.createSolidBackground('full_screen', 0x000000, '全屏黑')
-          }
-          if (factoryName === 'Background' && mc.method === 'full_white') {
-            return this.createSolidBackground('full_white', 0xffffff, '全屏白')
-          }
-          throw new Error(`工厂 '${factoryName}' 没有方法 '${mc.method}'`)
+          throw new Error(`工厂 '${objValue.name}' 没有方法 '${mc.method}'`)
         }
 
         // Direct property/expression getters on SceneObject
