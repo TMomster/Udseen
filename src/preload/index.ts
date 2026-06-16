@@ -37,6 +37,14 @@ const electronAPI = {
   setMenuBarVisible: (visible: boolean): Promise<void> =>
     ipcRenderer.invoke('window:setMenuBarVisible', visible),
 
+  // 退出动画
+  onBeforeClose: (callback: () => void): (() => void) => {
+    const handler = () => callback()
+    ipcRenderer.on('app:beforeClose', handler)
+    return () => ipcRenderer.removeListener('app:beforeClose', handler)
+  },
+  confirmClose: (): Promise<void> => ipcRenderer.invoke('app:confirmClose'),
+
   // 应用路径
   getAppPath: (): Promise<string> =>
     ipcRenderer.invoke('app:getPath'),
@@ -67,6 +75,9 @@ const electronAPI = {
   getPublicDir: (): Promise<string> =>
     ipcRenderer.invoke('app:getPublicDir'),
 
+  getAssetsPath: (): Promise<string> =>
+    ipcRenderer.invoke('app:getAssetsPath'),
+
   // 系统资源（CPU + 内存）
   getResourceUsage: (): Promise<{ cpuPercent: number; memoryMB: number }> =>
     ipcRenderer.invoke('system:resourceUsage'),
@@ -78,7 +89,46 @@ const electronAPI = {
     memoryUsedMB: number | null
     memoryTotalMB: number | null
     temperature: number | null
-  }> => ipcRenderer.invoke('system:gpuInfo')
+  }> => ipcRenderer.invoke('system:gpuInfo'),
+
+  // 窗口控制（无边框窗口自定义标题栏按钮）
+  minimizeWindow: (): Promise<void> => ipcRenderer.invoke('window:minimize'),
+  maximizeWindow: (): Promise<void> => ipcRenderer.invoke('window:maximize'),
+  closeWindow: (): Promise<void> => ipcRenderer.invoke('window:close'),
+  isWindowMaximized: (): Promise<boolean> => ipcRenderer.invoke('window:isMaximized'),
+
+  // 全屏
+  enterFullscreen: (): Promise<void> => ipcRenderer.invoke('window:enterFullscreen'),
+  onFullscreenChanged: (callback: (isFullscreen: boolean) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, isFullscreen: boolean) => callback(isFullscreen)
+    ipcRenderer.on('app:fullscreenChanged', handler)
+    return () => ipcRenderer.removeListener('app:fullscreenChanged', handler)
+  },
+
+  // 设置
+  getConfig: (): Promise<AppConfig> => ipcRenderer.invoke('settings:getConfig'),
+  setConfig: (config: Partial<AppConfig>): Promise<SetConfigResult> =>
+    ipcRenderer.invoke('settings:setConfig', config),
+
+  // 目录选择
+  selectDirectory: (): Promise<string | null> =>
+    ipcRenderer.invoke('dialog:selectDirectory'),
+
+  // 列出子目录
+  listSubdirs: (dirPath: string): Promise<string[]> =>
+    ipcRenderer.invoke('fs:listSubdirs', dirPath),
+
+  // 设置窗口尺寸
+  setWindowSize: (width: number, height: number): Promise<void> =>
+    ipcRenderer.invoke('window:setSize', width, height),
+
+  // 获取配置目录路径
+  getConfigDir: (): Promise<string> =>
+    ipcRenderer.invoke('app:getConfigDir'),
+
+  // 系统字体枚举
+  getSystemFonts: (): Promise<string[]> =>
+    ipcRenderer.invoke('system:getFonts')
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)
