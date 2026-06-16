@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>html,body,#root{background:#000}</style>
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' data: blob:; worker-src 'self' blob:;"
@@ -14,6 +15,39 @@
     <script type="module" src="./main.tsx"></script>
   </body>
   <style>
+    /* 设计令牌 */
+    :root {
+      --bg: #111115; --bg-card: #1a1a1f; --bg-input: #222228;
+      --text: #e0e0e0; --text-secondary: #999; --text-muted: #666;
+      --border: #333340; --border-focus: #888;
+      --accent: #c0c0c0; --accent-hover: #aaa;
+      --error: #e06060; --error-bg: #2a1515; --success: #60b060;
+      --shadow: rgba(0,0,0,0.2); --shadow-hover: rgba(0,0,0,0.3);
+      --header-bg: #111115;
+      --panel-bg: #1a1a1f;
+      --text-tertiary: #777;
+      --accent-subtle: rgba(200,200,200,0.08);
+    }
+    [data-theme="light"] {
+      --bg: #f8f6f0; --bg-card: #ffffff; --bg-input: #f3f1eb;
+      --text: #2c2c2c; --text-secondary: #6b6b6b; --text-muted: #999;
+      --border: #d0cec6; --border-focus: #2c2c2c;
+      --accent: #555; --accent-hover: #777;
+      --error: #b33a3a; --error-bg: #fdf0f0; --success: #3a7b3a;
+      --shadow: rgba(0,0,0,0.04); --shadow-hover: rgba(0,0,0,0.07);
+      --header-bg: #f8f6f0;
+      --panel-bg: #ffffff;
+      --text-tertiary: #999;
+      --accent-subtle: rgba(0,0,0,0.06);
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: "DengXian Light","DengXian","Microsoft YaHei Light","微软雅黑 Light","Noto Sans SC",sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      transition: background 0.3s, color 0.3s;
+      -webkit-font-smoothing: antialiased;
+    }
     /* 全局细滚动条样式 */
     *::-webkit-scrollbar {
       width: 6px;
@@ -23,14 +57,27 @@
       background: transparent;
     }
     *::-webkit-scrollbar-thumb {
-      background: rgba(255,255,255,0.12);
+      background: var(--border);
       border-radius: 3px;
     }
     *::-webkit-scrollbar-thumb:hover {
-      background: rgba(255,255,255,0.2);
+      background: var(--text-muted);
     }
     *::-webkit-scrollbar-corner {
       background: transparent;
     }
+  /* 下拉菜单淡入动画 */
+  /* ── 内置字体：得意黑（Smiley Sans）─ 通过 FontFace API 在 JS 中加载 ── */
+
+  @keyframes dropdownFadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  /* 工具按钮悬停缩放 */
+  @keyframes buttonPulse {
+    0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.1); }
+    70% { box-shadow: 0 0 0 4px rgba(255,255,255,0); }
+    100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
+  }
   </style>
 </html>
