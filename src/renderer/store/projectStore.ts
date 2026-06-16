@@ -1,8 +1,7 @@
 import { create } from 'zustand'
-import { VIRTUAL_HEIGHT } from '../engine/render/PixiRenderer'
 
-type ViewMode = 'editor' | 'template-settings' | 'help'
-type EditMode = 'code' | 'visual'
+export type ViewMode = 'editor' | 'template-settings' | 'help' | 'settings'
+export type EditMode = 'code' | 'visual'
 
 interface ProjectState {
   /** 当前文件路径 */
@@ -28,11 +27,7 @@ interface ProjectState {
   /** 镜头偏移（全屏模式下决定画面显示区域） */
   cameraOffsetX: number
   cameraOffsetY: number
-  /** 演出区域边界裁剪开关：开启时预览区域也应用镜头偏移，确保预览与全屏所见即所得 */
-  cropPreview: boolean
-  /** 全屏演出区域矩形高度（>0），默认 VIRTUAL_HEIGHT（1080），仅 cropPreview 开启时生效 */
-  cameraHeight: number
-  /** 坐标系校准偏移（不依赖 cropPreview，直接作用于坐标原点，用于校正全屏坐标） */
+  /** 坐标系校准偏移（直接作用于坐标原点，用于校正全屏坐标） */
   calibrationOffsetX: number
   calibrationOffsetY: number
   /** 资源预览开关：鼠标悬停于脚本中的资源路径时显示预览气泡 */
@@ -51,8 +46,6 @@ interface ProjectState {
   setBlockLineMap: (map: Map<number, string> | null) => void
   setExecutionBlockId: (id: string | null) => void
   setCameraOffset: (x: number, y: number) => void
-  setCropPreview: (crop: boolean) => void
-  setCameraHeight: (height: number) => void
   setCalibrationOffset: (x: number, y: number) => void
   setResourcePreview: (enabled: boolean) => void
 }
@@ -76,8 +69,6 @@ export const useProjectStore = create<ProjectState>((set) => ({
   executionBlockId: null,
   cameraOffsetX: 0,
   cameraOffsetY: -60,
-  cropPreview: false,
-  cameraHeight: VIRTUAL_HEIGHT,
   calibrationOffsetX: 0,
   calibrationOffsetY: -55,
   resourcePreview: true,
@@ -110,10 +101,6 @@ export const useProjectStore = create<ProjectState>((set) => ({
   setExecutionBlockId: (executionBlockId) => set({ executionBlockId }),
 
   setCameraOffset: (cameraOffsetX, cameraOffsetY) => set({ cameraOffsetX, cameraOffsetY }),
-
-  setCropPreview: (cropPreview) => set({ cropPreview }),
-
-  setCameraHeight: (cameraHeight) => set({ cameraHeight }),
 
   setCalibrationOffset: (calibrationOffsetX, calibrationOffsetY) => set({ calibrationOffsetX, calibrationOffsetY }),
 
