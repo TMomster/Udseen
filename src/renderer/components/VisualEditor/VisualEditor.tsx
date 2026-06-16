@@ -82,6 +82,21 @@ export function VisualEditor(): JSX.Element {
     }
   }, [blocks, editMode])
 
+  // 播放时自动滚动到正在执行的卡片 + 自动选中
+  useEffect(() => {
+    const unsub = useProjectStore.subscribe((state, prev) => {
+      const blockId = state.executionBlockId
+      if (!blockId || !listRef.current) return
+      // 找到对应的卡片 DOM 元素
+      const cardEl = listRef.current.querySelector(`[data-block-id="${blockId}"]`) as HTMLElement | null
+      if (!cardEl) return
+      cardEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      // 自动选中该卡片
+      useVisualEditorStore.getState().selectBlock(blockId)
+    })
+    return unsub
+  }, [])
+
   // 从调色板添加卡片（禁止创建 Start 块）
   const handleAddBlock = useCallback((type: string) => {
     if (type === 'Start') return
@@ -263,10 +278,10 @@ export function VisualEditor(): JSX.Element {
     return () => window.removeEventListener('keydown', handleKey)
   }, [editMode, contextMenu, blocks, copyBlock, pasteBlock])
 
-  const cardColor = (idx: number) => dragOverIdx === idx ? '#7c6ff0' : 'transparent'
+  const cardColor = (idx: number) => dragOverIdx === idx ? 'var(--border-focus)' : 'transparent'
 
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', background: '#12122a', position: 'relative', overflow: 'hidden' }}
+    <div style={{ width: '100%', height: '100%', display: 'flex', background: 'var(--bg)', position: 'relative', overflow: 'hidden' }}
       onContextMenu={handleListContextMenu}>
       <BlockPalette onDragBlock={handleAddBlock} onDeleteBlock={handleDeleteBlockId} />
 
@@ -280,15 +295,15 @@ export function VisualEditor(): JSX.Element {
         style={{ flex: 1, overflow: 'auto', padding: '16px 24px' }}>
         {/* 实时同步提示 */}
         {blocks.length > 0 && (
-          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ecdc4', display: 'inline-block' }} />
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
             实时同步模式
           </div>
         )}
 
         {/* 空白提示 */}
         {blocks.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '60px 20px', color: 'rgba(255,255,255,0.2)' }}>
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
             <div style={{ fontSize: 14, marginBottom: 8 }}>暂无卡片</div>
             <div style={{ fontSize: 11 }}>从左侧调色板点击添加，或切换代码编辑器编写脚本</div>
           </div>
@@ -298,13 +313,13 @@ export function VisualEditor(): JSX.Element {
         {startBlock && (
           <div key={startBlock.id} style={{ marginBottom: 12 }}>
             <div style={{
-              padding: '8px 16px', background: 'linear-gradient(135deg, #4a9eff33 0%, #4a9eff22 100%)',
-              border: '2px solid #4a9eff88', borderRadius: 10, fontSize: 12, fontWeight: 600, color: '#fff',
+              padding: '8px 16px', background: 'var(--bg-input)',
+              border: '1px solid var(--border)', fontSize: 12, color: 'var(--text)',
               display: 'flex', alignItems: 'center', gap: 8, userSelect: 'none'
             }}>
-              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#4a9eff', display: 'inline-block' }} />
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--accent)', display: 'inline-block' }} />
               <span>▶ 开始 (Start)</span>
-              <span style={{ marginLeft: 'auto', fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>入口块·自动生成</span>
+              <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-muted)' }}>入口块·自动生成</span>
             </div>
           </div>
         )}
