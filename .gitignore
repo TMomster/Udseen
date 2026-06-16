@@ -11,6 +11,8 @@ dist-types/
 *.log
 
 localhost-*.txt
+*.bak
+temp.json
 
 # Momster
 assets/
