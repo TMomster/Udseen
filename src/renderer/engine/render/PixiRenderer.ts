@@ -70,7 +70,7 @@ export class PixiRenderer implements IRenderer {
       // autoDensity: false 表示我们完全控制 CSS 尺寸，PIXI 不会覆盖我们的 CSS 设置
       resolution: Math.min(window.devicePixelRatio || 1, 2),
       autoDensity: false,
-      powerPreference: 'high-performance'
+      powerPreference: 'default'
     })
 
     // 启用舞台子节点排序，确保 DialogBox/ChoicePanel 能通过 zIndex 或添加顺序保持在顶层
@@ -90,8 +90,14 @@ export class PixiRenderer implements IRenderer {
     canvas.style.transform = 'none'
     container.appendChild(canvas)
 
-    // FPS cap for performance
-    this.app.ticker.maxFPS = 60
+    // WebGL 上下文丢失时阻止浏览器默认弹窗，由 PIXI 自行恢复
+    canvas.addEventListener('webglcontextlost', (e: Event) => {
+      e.preventDefault()
+      console.warn('[PixiRenderer] WebGL context lost — attempting auto-recovery')
+    })
+    canvas.addEventListener('webglcontextrestored', () => {
+      console.info('[PixiRenderer] WebGL context restored')
+    })
   }
 
   destroy(): void {
