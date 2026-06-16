@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import * as monaco from 'monaco-editor'
 import { useProjectStore } from '../../store/projectStore'
+import { useSettingsStore } from '../../store/settingsStore'
 import { ContextMenu } from '../VisualEditor/ContextMenu'
 import type { ContextMenuItem } from '../VisualEditor/ContextMenu'
 
@@ -28,6 +29,8 @@ export function ScriptEditor(): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
   const { content, setContent, executionLine, executionError } = useProjectStore()
+  const fontSize = useSettingsStore((s) => s.fontSize)
+  const fontFamily = useSettingsStore((s) => s.fontFamily)
   const prevDecorationsRef = useRef<string[]>([])
   const colorDecorationsRef = useRef<string[]>([])
 
@@ -333,8 +336,8 @@ export function ScriptEditor(): JSX.Element {
       value: content,
       language: 'udseen',
       theme: 'vs-dark',
-      fontSize: 14,
-      fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+      fontSize: fontSize,
+      fontFamily: fontFamily,
       lineNumbers: 'on',
       minimap: { enabled: false },
       automaticLayout: true,
@@ -445,6 +448,16 @@ export function ScriptEditor(): JSX.Element {
     })
 
     editorRef.current = editor
+
+    // 暴露查找/替换函数供 App.tsx 全局 Ctrl+F/H 调用
+    ;(window as unknown as Record<string, unknown>).__udseenFind = () => {
+      editor.focus()
+      editor.trigger(null, 'actions.find', undefined)
+    }
+    ;(window as unknown as Record<string, unknown>).__udseenFindReplace = () => {
+      editor.focus()
+      editor.trigger(null, 'editor.action.startFindReplaceAction', undefined)
+    }
 
     // ---- 颜色预览：RGB/Hex 行左侧色块 + 点击调色盘 ----
     // 使用 beforeContentClassName decoration + CSS 渲染小方块，纯 IDE 风格
@@ -631,11 +644,28 @@ export function ScriptEditor(): JSX.Element {
       swatchStyleEl?.remove()
       editor.dispose()
       editorRef.current = null
+      delete (window as unknown as Record<string, unknown>).__udseenFind
+      delete (window as unknown as Record<string, unknown>).__udseenFindReplace
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Ctrl+鼠标滚轮缩放
-  const editorFontSizeRef = useRef(14)
+  // 从设置同步编辑器字体大小
+  const editorFontSizeRef = useRef(fontSize)
+  useEffect(() => {
+    editorFontSizeRef.current = fontSize
+    if (editorRef.current) {
+      editorRef.current.updateOptions({ fontSize })
+    }
+  }, [fontSize])
+
+  // 从设置同步编辑器字体
+  useEffect(() => {
+    if (editorRef.current) {
+      editorRef.current.updateOptions({ fontFamily })
+    }
+  }, [fontFamily])
+
+  // Ctrl+鼠标滚轮缩放（同步到设置）
   useEffect(() => {
     const container = containerRef.current
     if (!container || !editorRef.current) return
@@ -648,6 +678,7 @@ export function ScriptEditor(): JSX.Element {
       const newSize = Math.max(10, Math.min(40, editorFontSizeRef.current + delta))
       editorFontSizeRef.current = newSize
       editor.updateOptions({ fontSize: newSize })
+      useSettingsStore.getState().updateSetting('fontSize', newSize)
     }
     container.addEventListener('wheel', onWheel, { passive: false })
     return () => container.removeEventListener('wheel', onWheel)
