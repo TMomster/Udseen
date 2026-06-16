@@ -1,11 +1,19 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useAssetStore } from '../../store/assetStore'
+import { useSettingsStore } from '../../store/settingsStore'
 
 interface FileEntry {
   name: string
   path: string
   isDirectory: boolean
   fullPath: string
+  /** null = 主目录, string = 虚拟路径来源（显示用） */
+  virtualSource: string | null
+}
+
+/** 用于操作的文件信息（可能来自虚拟路径，需区分来源） */
+interface OperationEntry extends FileEntry {
+  isVirtual: boolean
 }
 
 interface ResourceBrowserProps {
@@ -32,22 +40,61 @@ export function ResourceBrowser({ onResourceDrag }: ResourceBrowserProps): JSX.E
       setLoading(true)
       const baseDir = publicDir || await window.electronAPI.getPublicDir()
       if (!publicDir) setPublicDir(baseDir)
-      const targetPath = dirPath ? `${baseDir}/${dirPath}` : baseDir
-      const fileEntries = await window.electronAPI.readDir(targetPath)
-      const list: FileEntry[] = (fileEntries as Array<{ name: string; isDirectory: boolean }>)
-        .filter((e) => !e.name.startsWith('.'))
-        .map((e) => ({
-          name: e.name,
-          path: dirPath ? `${dirPath}/${e.name}` : e.name,
-          isDirectory: e.isDirectory,
-          fullPath: `${baseDir}/${dirPath ? dirPath + '/' : ''}${e.name}`
-        }))
+
+      // 获取有效的虚拟路径
+      const { virtualPaths } = useSettingsStore.getState()
+      const validVirtualPaths = virtualPaths.filter(v => v.valid && v.path).map(v => v.path)
+
+      const allEntries: FileEntry[] = []
+      const seenNames = new Set<string>()
+
+      // 1. 读取主目录
+      const primaryTarget = dirPath ? `${baseDir}/${dirPath}` : baseDir
+      try {
+        const primaryEntries = await window.electronAPI.readDir(primaryTarget)
+        for (const e of primaryEntries) {
+          if (e.name.startsWith('.')) continue
+          seenNames.add(e.name)
+          allEntries.push({
+            name: e.name,
+            path: dirPath ? `${dirPath}/${e.name}` : e.name,
+            isDirectory: e.isDirectory,
+            fullPath: `${baseDir}/${dirPath ? dirPath + '/' : ''}${e.name}`,
+            virtualSource: null
+          })
+        }
+      } catch (err) {
+        console.error('加载主资源目录失败:', err)
+      }
+
+      // 2. 读取每个虚拟路径（同名文件以主目录优先，虚拟路径不覆盖）
+      for (const vp of validVirtualPaths) {
+        const vpTarget = dirPath ? `${vp}/${dirPath}` : vp
+        try {
+          const vpEntries = await window.electronAPI.readDir(vpTarget)
+          for (const e of vpEntries) {
+            if (e.name.startsWith('.')) continue
+            if (seenNames.has(e.name)) continue // 主目录优先
+            seenNames.add(e.name)
+            allEntries.push({
+              name: e.name,
+              path: dirPath ? `${dirPath}/${e.name}` : e.name,
+              isDirectory: e.isDirectory,
+              fullPath: `${vp}/${dirPath ? dirPath + '/' : ''}${e.name}`,
+              virtualSource: vp
+            })
+          }
+        } catch {
+          // 虚拟路径可能没有该子目录，静默跳过
+        }
+      }
+
       // 目录排前，按名称排序
-      list.sort((a, b) => {
+      allEntries.sort((a, b) => {
         if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1
         return a.name.localeCompare(b.name)
       })
-      setEntries(list)
+      setEntries(allEntries)
     } catch (err) {
       console.error('加载资源目录失败:', err)
     } finally {
@@ -271,8 +318,8 @@ export function ResourceBrowser({ onResourceDrag }: ResourceBrowserProps): JSX.E
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        background: '#16162a',
-        color: '#cdd6f4',
+        background: 'var(--bg)',
+        color: 'var(--text)',
         fontSize: 13,
         userSelect: 'none'
       }}
@@ -281,31 +328,33 @@ export function ResourceBrowser({ onResourceDrag }: ResourceBrowserProps): JSX.E
     >
       {/* 标题栏 */}
       <div style={{
-        padding: '8px 12px',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        padding: '8px 14px',
+        borderBottom: '1px solid var(--border)',
         fontSize: 12,
-        fontWeight: 600,
-        color: '#7c6ff0',
+        fontWeight: 500,
+        color: 'var(--text-secondary)',
+        letterSpacing: 1,
+        textTransform: 'uppercase' as const,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexShrink: 0
       }}>
-        <span>资源管理器</span>
+        <span>资源</span>
         <button
           onClick={refresh}
           title="刷新"
           style={{
             background: 'none',
-            border: 'none',
-            color: '#888',
+            border: '1px solid var(--border)',
+            color: 'var(--text-muted)',
             cursor: 'pointer',
-            fontSize: 14,
-            padding: '2px 6px',
-            borderRadius: 4
+            fontSize: 13,
+            padding: '2px 8px',
+            lineHeight: '20px'
           }}
-          onMouseEnter={(e) => e.currentTarget.style.color = '#ccc'}
-          onMouseLeave={(e) => e.currentTarget.style.color = '#888'}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-input)'; e.currentTarget.style.borderColor = 'var(--text)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.borderColor = 'var(--border)' }}
         >
           ↻
         </button>
@@ -313,37 +362,36 @@ export function ResourceBrowser({ onResourceDrag }: ResourceBrowserProps): JSX.E
 
       {/* 面包屑导航 */}
       <div style={{
-        padding: '4px 8px',
+        padding: '4px 10px',
         display: 'flex',
         alignItems: 'center',
         gap: 4,
         fontSize: 12,
-        color: '#888',
-        borderBottom: '1px solid rgba(255,255,255,0.04)',
+        color: 'var(--text-muted)',
+        borderBottom: '1px solid var(--border)',
         flexShrink: 0,
         overflowX: 'auto'
       }}>
         <span
           onClick={() => setCurrentPath('')}
-          style={{ cursor: 'pointer', color: currentPath ? '#7c6ff0' : '#aaa', whiteSpace: 'nowrap', padding: '2px 4px', borderRadius: 3 }}
-          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(124,111,240,0.1)'}
+          style={{ cursor: 'pointer', color: currentPath ? 'var(--accent)' : 'var(--text-secondary)', whiteSpace: 'nowrap', padding: '2px 4px' }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-input)'}
           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
         >
           根目录
         </span>
         {pathParts.map((part, idx) => (
           <span key={idx} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ color: '#555' }}>/</span>
+            <span style={{ color: 'var(--border)' }}>/</span>
             <span
               onClick={() => setCurrentPath(pathParts.slice(0, idx + 1).join('/'))}
               style={{
                 cursor: 'pointer',
-                color: idx === pathParts.length - 1 ? '#cdd6f4' : '#7c6ff0',
+                color: idx === pathParts.length - 1 ? 'var(--text)' : 'var(--accent)',
                 whiteSpace: 'nowrap',
-                padding: '2px 4px',
-                borderRadius: 3
+                padding: '2px 4px'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(124,111,240,0.1)'}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-input)'}
               onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
             >
               {part}
@@ -355,12 +403,12 @@ export function ResourceBrowser({ onResourceDrag }: ResourceBrowserProps): JSX.E
       {/* 文件列表 */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
         {loading ? (
-          <div style={{ padding: 20, textAlign: 'center', color: '#666' }}>加载中...</div>
+          <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)' }}>加载中...</div>
         ) : entries.length === 0 ? (
-          <div style={{ padding: 20, textAlign: 'center', color: '#666' }}>
+          <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)' }}>
             <div style={{ fontSize: 28, marginBottom: 8 }}>📂</div>
             <div>资源目录为空</div>
-            <div style={{ fontSize: 11, marginTop: 4, color: '#555' }}>将图片/音频放入 assets/public 目录</div>
+            <div style={{ fontSize: 11, marginTop: 4, color: 'var(--text-muted)' }}>将图片/音频放入 assets/public 目录</div>
           </div>
         ) : (
           entries.map((entry) => {
@@ -377,14 +425,12 @@ export function ResourceBrowser({ onResourceDrag }: ResourceBrowserProps): JSX.E
                   display: 'flex',
                   alignItems: 'center',
                   gap: 8,
-                  padding: '5px 12px',
+                  padding: '5px 14px',
                   cursor: entry.isDirectory ? 'pointer' : 'default',
-                  borderRadius: 4,
-                  margin: '0 4px',
                   transition: 'background 0.1s'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
+                  e.currentTarget.style.background = 'var(--bg-input)'
                   if (!entry.isDirectory && previewTimerRef.current === null) {
                     previewTimerRef.current = setTimeout(() => {
                       previewTimerRef.current = null
@@ -401,7 +447,24 @@ export function ResourceBrowser({ onResourceDrag }: ResourceBrowserProps): JSX.E
                   hidePreview()
                 }}
               >
-                <span style={{ fontSize: 16 }}>{info.icon}</span>
+                <span style={{ fontSize: 16, opacity: entry.virtualSource ? 0.6 : 1 }}>{info.icon}</span>
+                {/* 虚拟路径标记 */}
+                {entry.virtualSource && (
+                  <span
+                    title={`来自虚拟路径: ${entry.virtualSource}`}
+                    style={{
+                      fontSize: 9,
+                      padding: '1px 4px',
+                      borderRadius: 3,
+                      background: 'rgba(255, 165, 2, 0.2)',
+                      color: '#ffa502',
+                      fontWeight: 600,
+                      flexShrink: 0
+                    }}
+                  >
+                    V
+                  </span>
+                )}
                 {isRenaming ? (
                   <input
                     ref={renameRef}
@@ -415,13 +478,13 @@ export function ResourceBrowser({ onResourceDrag }: ResourceBrowserProps): JSX.E
                     autoFocus
                     style={{
                       flex: 1,
-                      background: 'rgba(255,255,255,0.08)',
-                      border: '1px solid #7c6ff0',
-                      color: '#cdd6f4',
+                      background: 'var(--bg-input)',
+                      border: '1px solid var(--border-focus)',
+                      color: 'var(--text)',
                       padding: '2px 6px',
-                      borderRadius: 3,
                       fontSize: 12,
-                      outline: 'none'
+                      outline: 'none',
+                      fontFamily: 'inherit'
                     }}
                     onClick={(e) => e.stopPropagation()}
                   />
@@ -431,7 +494,7 @@ export function ResourceBrowser({ onResourceDrag }: ResourceBrowserProps): JSX.E
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
-                    color: entry.isDirectory ? '#cdd6f4' : '#b0b0d0'
+                    color: entry.virtualSource ? 'var(--text-muted)' : (entry.isDirectory ? 'var(--text)' : 'var(--text-secondary)')
                   }}>
                     {entry.name}
                   </span>
@@ -449,16 +512,23 @@ export function ResourceBrowser({ onResourceDrag }: ResourceBrowserProps): JSX.E
 
       {/* 状态栏 */}
       <div style={{
-        padding: '4px 12px',
-        borderTop: '1px solid rgba(255,255,255,0.04)',
+        padding: '4px 14px',
+        borderTop: '1px solid var(--border)',
         fontSize: 11,
-        color: '#666',
+        color: 'var(--text-muted)',
         display: 'flex',
         justifyContent: 'space-between',
         flexShrink: 0
       }}>
-        <span>{entries.filter((e) => !e.isDirectory).length} 个文件</span>
-        <span>{entries.filter((e) => e.isDirectory).length} 个文件夹</span>
+        <span>{entries.filter((e) => !e.isDirectory).length} 文件</span>
+        <span>
+          {entries.filter((e) => e.isDirectory).length} 文件夹
+          {entries.some((e) => e.virtualSource) && (
+            <span style={{ marginLeft: 8, color: '#ffa502', fontSize: 10 }}>
+              | {entries.filter((e) => e.virtualSource).length} 虚拟
+            </span>
+          )}
+        </span>
       </div>
 
       {/* 悬浮资源预览 */}
@@ -469,27 +539,25 @@ export function ResourceBrowser({ onResourceDrag }: ResourceBrowserProps): JSX.E
             left: preview.x,
             top: preview.y,
             zIndex: 100000,
-            background: '#252526',
-            border: '1px solid #454545',
-            borderRadius: 6,
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border)',
             padding: 10,
-            boxShadow: '0 6px 20px rgba(0,0,0,0.6)',
+            boxShadow: '0 6px 20px var(--shadow-hover)',
             pointerEvents: 'none',
             maxWidth: 320,
-            fontFamily: 'system-ui, sans-serif',
             fontSize: 13,
-            color: '#ccc'
+            color: 'var(--text)'
           }}
         >
-          <div style={{ marginBottom: 6, color: '#aaa' }}>
+          <div style={{ marginBottom: 6, color: 'var(--text-secondary)' }}>
             {preview.dataUrl ? (
               <>
                 <span style={{ color: '#7bed9f' }}>[C]</span> {preview.entry.name}
               </>
             ) : preview.error ? (
-              <span style={{ color: '#f44' }}>⚠ {preview.error}</span>
+              <span style={{ color: 'var(--error)' }}>⚠ {preview.error}</span>
             ) : preview.loading ? (
-              <span style={{ color: '#888' }}>加载中...</span>
+              <span style={{ color: 'var(--text-muted)' }}>加载中...</span>
             ) : (
               <>
                 <span style={{ color: '#ffa502' }}>[A]</span> {preview.entry.name}
@@ -499,7 +567,7 @@ export function ResourceBrowser({ onResourceDrag }: ResourceBrowserProps): JSX.E
           {preview.dataUrl && (
             <img
               src={preview.dataUrl}
-              style={{ maxWidth: 260, maxHeight: 200, borderRadius: 4, border: '1px solid #444', display: 'block' }}
+              style={{ maxWidth: 260, maxHeight: 200, border: '1px solid var(--border)', display: 'block' }}
               alt={preview.entry.name}
             />
           )}
@@ -513,10 +581,9 @@ export function ResourceBrowser({ onResourceDrag }: ResourceBrowserProps): JSX.E
             position: 'fixed',
             left: contextMenu.x,
             top: contextMenu.y,
-            background: '#22223a',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 8,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border)',
+            boxShadow: '0 4px 20px var(--shadow-hover)',
             zIndex: 10000,
             minWidth: 160,
             padding: '4px 0',
@@ -529,9 +596,15 @@ export function ResourceBrowser({ onResourceDrag }: ResourceBrowserProps): JSX.E
               {contextMenu.entry.isDirectory && (
                 <MenuItem label="进入文件夹" onClick={() => { enterDir(contextMenu.entry!); closeContextMenu() }} />
               )}
-              <MenuItem label="重命名" onClick={() => startRename(contextMenu.entry!)} />
-              <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '4px 8px' }} />
-              <MenuItem label="删除" onClick={() => handleDelete(contextMenu.entry!)} color="#f44336" />
+              {contextMenu.entry.virtualSource ? (
+                <MenuItem label="虚拟资源（只读）" onClick={closeContextMenu} color="var(--text-muted)" />
+              ) : (
+                <>
+                  <MenuItem label="重命名" onClick={() => startRename(contextMenu.entry!)} />
+                  <div style={{ height: 1, background: 'var(--border)', margin: '4px 8px' }} />
+                  <MenuItem label="删除" onClick={() => handleDelete(contextMenu.entry!)} color="var(--error)" />
+                </>
+              )}
             </>
           ) : (
             <>
@@ -552,11 +625,11 @@ function MenuItem({ label, onClick, color }: { label: string; onClick: () => voi
       style={{
         padding: '6px 16px',
         cursor: 'pointer',
-        color: color || '#cdd6f4',
+        color: color || 'var(--text)',
         fontSize: 13,
         transition: 'background 0.1s'
       }}
-      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(124,111,240,0.15)'}
+      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-input)'}
       onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
     >
       {label}
