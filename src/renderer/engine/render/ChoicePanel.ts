@@ -85,7 +85,7 @@ const DEFAULT_STYLE: ChoiceStyle = {
     textColor: '#888888'
   },
   text: {
-    fontFamily: 'Source Han Serif SC, Noto Serif SC, SimSun, serif',
+    fontFamily: "'Smiley Sans','Source Han Sans SC','Noto Sans SC','Microsoft YaHei',sans-serif",
     fontSize: 26,
     color: '#e8e8f0',
     textAlign: 'center' as const,
@@ -407,6 +407,13 @@ export class ChoicePanel {
    */
   hide(): void {
     this.container.visible = false
+  }
+
+  /**
+   * 控制选项面板可见性（不重置内容）
+   */
+  setVisible(visible: boolean): void {
+    this.container.visible = visible
   }
 
   /**
