@@ -107,4 +107,16 @@ describe('parseScript', () => {
     const result = parseScript('// 这是注释\nlet x = 1;')
     expect(result.success).toBe(true)
   })
+
+  it('应该解析三层链式调用: a.b().c().d()', () => {
+    const result = parseScript('a.b().c().d();')
+    expect(result.success).toBe(true)
+    if (result.success) {
+      const stmt = result.ast.statements[0]
+      expect(stmt.type).toBe('Block')
+      if (stmt.type === 'Block') {
+        expect(stmt.statements).toHaveLength(3)
+      }
+    }
+  })
 })
