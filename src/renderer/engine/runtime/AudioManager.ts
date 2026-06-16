@@ -12,7 +12,7 @@ export interface AudioCallContext {
   onError?: (msg: string) => void
   onExecutionError?: (line: number, msg: string) => void
   onWarning?: (msg: string) => void
-  resolveAssetPath: (rawPath: string, factoryName: string | null) => string
+  resolveAssetPath: (rawPath: string, factoryName: string | null) => Promise<string>
 }
 
 /**
@@ -75,7 +75,7 @@ export class AudioManager {
   /**
    * 播放对话音频 - 对话框出现时自动播放一次，终止上一个对话音频，播放完成后自动销毁
    */
-  playDialogueAudio(audioPath: string | undefined, context: AudioCallContext): Promise<number> {
+  async playDialogueAudio(audioPath: string | undefined, context: AudioCallContext): Promise<number> {
     // 终止上一个对话音频
     if (this.dialogueHowl) {
       try {
@@ -85,7 +85,7 @@ export class AudioManager {
       this.dialogueHowl = null
     }
     if (!audioPath) return Promise.resolve(0)
-    const resolvedPath = context.resolveAssetPath(audioPath, 'Audio')
+    const resolvedPath = await context.resolveAssetPath(audioPath, 'Audio')
     // 预检对话音频格式
     if (!this.isAudioFormatSupported(resolvedPath)) {
       context.onWarning?.(`对话音频格式不支持: ${resolvedPath}（支持的格式: mp3, ogg, opus, wav, aac, m4a, flac, webm）`)
@@ -156,20 +156,22 @@ export class AudioManager {
           audio.howl = null
         }
 
-        // 预检：在 Electron 环境下先验证音频文件是否存在
-        try {
-          const fileCheck = await (window as any).electronAPI?.fileExists?.(audio.filePath)
-          if (fileCheck === false) {
-            this.reportAudioError(
-              `音频文件不存在: ${audio.filePath}`,
-              context,
-              currentLine
-            )
-            audio.howl = null
-            return
+        // 预检：在 Electron 环境下先验证音频文件是否存在（跳过 data URL）
+        if (!audio.filePath.startsWith('data:')) {
+          try {
+            const fileCheck = await (window as any).electronAPI?.fileExists?.(audio.filePath)
+            if (fileCheck === false) {
+              this.reportAudioError(
+                `音频文件不存在: ${audio.filePath}`,
+                context,
+                currentLine
+              )
+              audio.howl = null
+              return
+            }
+          } catch {
+            // 文件检查不可用时，跳过预检
           }
-        } catch {
-          // 文件检查不可用时，跳过预检
         }
 
         try {
