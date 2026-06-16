@@ -117,8 +117,8 @@ export function BlockPalette({ onDragBlock, onDeleteBlock }: BlockPaletteProps):
       style={{
         width: 220,
         height: '100%',
-        background: dropTarget ? 'rgba(255,50,50,0.12)' : '#1a1a30',
-        borderRight: dropTarget ? '2px solid rgba(255,50,50,0.5)' : '1px solid rgba(255,255,255,0.06)',
+        background: dropTarget ? 'rgba(255,50,50,0.12)' : 'var(--panel-bg)',
+        borderRight: dropTarget ? '2px solid rgba(255,50,50,0.5)' : 'var(--border)',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
@@ -129,8 +129,8 @@ export function BlockPalette({ onDragBlock, onDeleteBlock }: BlockPaletteProps):
         padding: '10px 12px',
         fontSize: 12,
         fontWeight: 600,
-        color: '#7c6ff0',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        color: 'var(--accent)',
+        borderBottom: 'var(--border)',
         display: 'flex',
         flexDirection: 'column',
         gap: 6
@@ -156,7 +156,7 @@ export function BlockPalette({ onDragBlock, onDeleteBlock }: BlockPaletteProps):
             width: 28,
             height: 14,
             borderRadius: 7,
-            background: useChineseLabel ? '#7c6ff0' : 'rgba(255,255,255,0.2)',
+            background: useChineseLabel ? 'var(--accent)' : 'rgba(255,255,255,0.2)',
             position: 'relative',
             transition: 'background 0.2s'
           }}
@@ -180,7 +180,7 @@ export function BlockPalette({ onDragBlock, onDeleteBlock }: BlockPaletteProps):
       {/* 资源池 — 动态检测到的对象 */}
       {resourceObjects.length > 0 && (
         <div style={{
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          borderBottom: 'var(--border)',
           padding: '6px 10px'
         }}>
           <div
@@ -191,7 +191,7 @@ export function BlockPalette({ onDragBlock, onDeleteBlock }: BlockPaletteProps):
               justifyContent: 'space-between',
               cursor: 'pointer',
               fontSize: 10,
-              color: '#7c6ff0',
+              color: 'var(--accent)',
               textTransform: 'uppercase',
               letterSpacing: 1,
               userSelect: 'none'
@@ -230,7 +230,7 @@ export function BlockPalette({ onDragBlock, onDeleteBlock }: BlockPaletteProps):
                     borderRadius: 4,
                     fontSize: 10,
                     cursor: 'grab',
-                    color: '#e0e0f0',
+                    color: 'var(--text)',
                     background: `${obj.color}22`,
                     border: `1px solid ${obj.color}44`,
                     userSelect: 'none',
@@ -266,7 +266,7 @@ export function BlockPalette({ onDragBlock, onDeleteBlock }: BlockPaletteProps):
       {/* 搜索栏 */}
       <div style={{
         padding: '8px 10px',
-        borderBottom: '1px solid rgba(255,255,255,0.06)'
+        borderBottom: 'var(--border)'
       }}>
         <div style={{
           position: 'relative',
@@ -301,12 +301,12 @@ export function BlockPalette({ onDragBlock, onDeleteBlock }: BlockPaletteProps):
               background: 'rgba(255,255,255,0.06)',
               border: '1px solid rgba(255,255,255,0.1)',
               borderRadius: 6,
-              color: '#cdd6f4',
+              color: 'var(--text)',
               fontSize: 11,
               outline: 'none',
               transition: 'border-color 0.15s'
             }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = '#7c6ff0' }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--accent)' }}
             onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}
           />
           {searchQuery && (
