@@ -3,7 +3,19 @@ import { VIRTUAL_WIDTH, VIRTUAL_HEIGHT } from './PixiRenderer'
 
 /**
  * 对话框样式配置
+ *
+ * 定位方式：对话框 box 使用边距（相对屏幕边缘），
+ * 内部元素（姓名框、头像、对话文本、姓名文本）使用
+ * 相对于对话框背景框左上角的直接 X/Y 绝对坐标，
+ * 可自由放置在框内任意位置。
  */
+export interface HistoryEntry {
+  speaker: string | null
+  text: string
+  avatar?: string
+  audioPath?: string
+}
+
 export interface DialogStyle {
   box: {
     width?: number  // 不再使用，由 leftMargin + rightMargin 推导
@@ -23,6 +35,8 @@ export interface DialogStyle {
     shadowBlur: number
     /** 阴影颜色 */
     shadowColor: number
+    /** 是否显示头像（false = 即使提供了头像也忽略，用于电影模板等） */
+    showAvatar?: boolean
     /** 阴影透明度 */
     shadowAlpha: number
     /** 阴影水平偏移 */
@@ -42,11 +56,12 @@ export interface DialogStyle {
     }
   }
   nameBox: {
+    /** X 坐标：相对于对话框左边缘的偏移量（0 = 最左端） */
+    x: number
+    /** Y 坐标：相对于对话框上边缘的偏移量（0 = 最顶端） */
+    y: number
     width: number
     height: number
-    leftMargin: number
-    rightMargin: number
-    bottomMargin: number
     backgroundColor: number
     backgroundAlpha: number
     borderColor: number
@@ -55,13 +70,12 @@ export interface DialogStyle {
     borderRadius: number
   }
   avatar: {
+    /** X 坐标：相对于对话框左边缘的偏移量（0 = 紧贴左边缘） */
+    x: number
+    /** Y 坐标：相对于对话框上边缘的偏移量（0 = 紧贴上边缘） */
+    y: number
     width: number
     height: number
-    leftMargin: number
-    rightMargin: number
-    bottomMargin: number
-    /** 头像顶部边距：相对于对话框顶部的偏移（正=向下移），默认在对话框顶部 */
-    topMargin?: number
     /** 头像圆角（0=直角方形，height/2=正圆形） */
     borderRadius?: number
     /** 头像描边颜色 */
@@ -75,10 +89,14 @@ export interface DialogStyle {
     fontFamily: string
     fontSize: number
     color: string
-    topMargin: number
-    leftMargin: number
-    rightMargin: number
-    bottomMargin: number
+    /** X 坐标：文本区域左边缘，相对于对话框左边缘 */
+    x: number
+    /** Y 坐标：文本区域上边缘，相对于对话框上边缘 */
+    y: number
+    /** 文本区域宽度（即 wordWrapWidth） */
+    width: number
+    /** 文本区域高度 */
+    height: number
     lineHeight: number
     letterSpacing: number
     strokeColor: string
@@ -99,12 +117,12 @@ export interface DialogStyle {
     strokeColor: string
     strokeAlpha: number
     strokeWidth: number
-    /** 姓名文本上边距 */
-    topMargin?: number
-    /** 姓名文本左边距 */
-    leftMargin?: number
-    /** 姓名文本下边距 */
-    bottomMargin?: number
+    /** X 坐标：姓名文本在姓名框内的水平偏移量 */
+    x: number
+    /** Y 坐标：姓名文本在姓名框内的垂直偏移量（不设置则居中） */
+    y?: number
+    /** 文本对齐方式：left | center | right */
+    textAlign?: 'left' | 'center' | 'right'
     /** 字重：'normal' | 'bold' */
     fontWeight?: string
     /** 字体样式：'normal' | 'italic' */
@@ -118,8 +136,10 @@ export interface DialogStyle {
     color: number
     /** 圆环线条宽度 */
     width: number
-    /** 圆环距对话框右上角的边距（水平和垂直共用） */
-    rightMargin: number
+    /** 圆环中心 X：相对于对话框右边缘的距离（正数=向左偏移） */
+    x: number
+    /** 圆环中心 Y：相对于对话框上边缘的偏移量 */
+    y: number
   }
 }
 
@@ -146,11 +166,10 @@ const DEFAULT_STYLE: DialogStyle = {
     shadowOffsetY: 6
   },
   nameBox: {
+    x: 24,
+    y: 6,
     width: 160,
     height: 40,
-    leftMargin: 24,
-    rightMargin: 24,
-    bottomMargin: 8,
     backgroundColor: 0x1a1a3a,
     backgroundAlpha: 0.9,
     borderColor: 0x6363b3,
@@ -159,24 +178,23 @@ const DEFAULT_STYLE: DialogStyle = {
     borderRadius: 6
   },
   avatar: {
+    x: 16,
+    y: 0,
     width: 130,
     height: 130,
-    leftMargin: 16,
-    rightMargin: 14,
-    bottomMargin: 12,
     borderRadius: 12,
     borderColor: 0x6363b3,
     borderWidth: 2,
     borderAlpha: 0.5
   },
   dialogueText: {
-    fontFamily: 'Source Han Serif SC, Noto Serif SC, SimSun, serif',
+    fontFamily: "'Smiley Sans','Source Han Sans SC','Noto Sans SC','Microsoft YaHei',sans-serif",
     fontSize: 26,
     color: '#e8e8f0',
-    topMargin: 8,
-    leftMargin: 12,
-    rightMargin: 12,
-    bottomMargin: 16,
+    x: 12,
+    y: 54,
+    width: 1736,
+    height: 150,
     lineHeight: 40,
     letterSpacing: 1,
     strokeColor: '#000000',
@@ -187,16 +205,16 @@ const DEFAULT_STYLE: DialogStyle = {
     fontStyle: 'normal'
   },
   nameText: {
-    fontFamily: 'Source Han Serif SC, Noto Serif SC, SimSun, serif',
+    fontFamily: "'Smiley Sans','Source Han Sans SC','Noto Sans SC','Microsoft YaHei',sans-serif",
     fontSize: 18,
     color: '#d4a843',
     letterSpacing: 2,
     strokeColor: '#000000',
     strokeAlpha: 0,
     strokeWidth: 0,
-    topMargin: 0,
-    leftMargin: 10,
-    bottomMargin: 0,
+    x: 10,
+    y: undefined,
+    textAlign: 'left',
     fontWeight: 'bold',
     fontStyle: 'normal'
   },
@@ -204,8 +222,81 @@ const DEFAULT_STYLE: DialogStyle = {
     size: 36,
     color: 0x7c6ff0,
     width: 3,
-    rightMargin: 16,
+    x: 34,
+    y: 34,
   },
+}
+
+// ─── 样式应用与对齐辅助函数 ─────────────────────────────────
+
+/**
+ * 一次性构建对话文本的完整 TextStyle 并应用到 PIXI.Text 对象。
+ * 在设置 .text 之前调用，确保 align/wordWrap 等样式完整生效。
+ */
+function applyDialogueTextStyles(
+  textObj: PIXI.Text,
+  config: DialogStyle['dialogueText'],
+  contentWidth: number,
+  align: string
+): void {
+  textObj.style = new PIXI.TextStyle({
+    fontFamily: config.fontFamily,
+    fontSize: config.fontSize as number,
+    fill: config.color,
+    lineHeight: config.lineHeight as number,
+    letterSpacing: config.letterSpacing as number,
+    stroke: config.strokeColor,
+    strokeThickness: config.strokeWidth as number,
+    fontWeight: config.fontWeight ?? 'normal',
+    fontStyle: config.fontStyle ?? 'normal',
+    wordWrap: true,
+    wordWrapWidth: contentWidth,
+    align: align as 'left' | 'center' | 'right' | 'justify'
+  })
+}
+
+/**
+ * 一次性构建姓名文本的完整 TextStyle 并应用到 PIXI.Text 对象。
+ */
+function applyNameTextStyles(
+  textObj: PIXI.Text,
+  config: DialogStyle['nameText'],
+  wrapWidth: number
+): void {
+  const opts: Record<string, unknown> = {
+    fontFamily: config.fontFamily,
+    fontSize: config.fontSize as number,
+    fill: config.color,
+    letterSpacing: config.letterSpacing as number,
+    stroke: config.strokeColor,
+    strokeThickness: config.strokeWidth as number,
+    wordWrap: true,
+    wordWrapWidth: wrapWidth,
+    align: (config.textAlign ?? 'left')
+  }
+  if (config.fontWeight) opts.fontWeight = config.fontWeight
+  if (config.fontStyle) opts.fontStyle = config.fontStyle
+  textObj.style = new PIXI.TextStyle(opts as PIXI.ITextStyle)
+}
+
+/**
+ * 手动计算文本对齐的 X 偏移量。
+ *
+ * PIXI.js 的 `TextStyle.align` 只对多行文本生效，单行文本始终居左渲染。
+ * 此函数在文本内容已设置后调用，通过测量 `textObj.width` 来手动计算偏移，
+ * 从而支持单行和多行文本的正确居左/居中/居右。
+ *
+ * @param textObj  已经设置好样式和内容的 PIXI.Text 对象
+ * @param containerWidth  文本容器的宽度（即 wordWrapWidth）
+ * @param align  对齐方式 'left' | 'center' | 'right'
+ * @returns 需要增加到原始 X 位置的偏移量（像素）
+ */
+function computeAlignOffset(textObj: PIXI.Text, containerWidth: number, align: string): number {
+  if (align === 'left') return 0
+  const textWidth = textObj.width
+  if (align === 'center') return Math.max(0, (containerWidth - textWidth) / 2)
+  if (align === 'right') return Math.max(0, containerWidth - textWidth)
+  return 0
 }
 
 /**
@@ -247,13 +338,25 @@ export class DialogBox {
   /** 进度环动画 ticker 函数引用 */
   private progressTickerFn: (() => void) | null = null
   /** 对话框历史记录，支持上一步/下一步导航 */
-  private dialogHistory: Array<{ speaker: string | null; text: string; avatar?: string }> = []
+  private dialogHistory: HistoryEntry[] = []
   /** 当前在历史中的索引 */
   private historyIndex: number = -1
   /** 头像纹理缓存 key -> Texture（避免多次加载同一头像文件） */
   private avatarTextureCache = new Map<string, PIXI.Texture>()
   /** 组件销毁标记，用于防止异步回调访问已销毁实例 */
   private _destroyed = false
+
+  // ── 逐字播放相关 ──
+  /** 逐字播放每字符延迟（毫秒） */
+  private _typingDelay = 40
+  /** 逐字播放定时器句柄 */
+  private _typingTimeoutId: ReturnType<typeof setTimeout> | null = null
+  /** 完整文本 */
+  private _fullText = ''
+  /** 是否正在逐字播放中 */
+  private _isTyping = false
+  /** 文本布局参数缓存（逐字播放时用于重新计算对齐偏移） */
+  private _textLayout: { txX: number; contentWidth: number; txAlign: string; textAreaY: number } | null = null
 
   constructor(app: PIXI.Application, style?: Partial<DialogStyle>) {
     this.app = app
@@ -340,11 +443,6 @@ export class DialogBox {
       ? Math.round(s.box.topMargin)
       : Math.round(VH - boxHeight - s.box.bottomMargin)
 
-    // 头像占用的水平偏移量
-    const avW = s.avatar.width
-    const avRightMargin = s.avatar.rightMargin
-    const textLeftShift = hasAvatar ? avW + avRightMargin : 0
-
     // 绘制背景（含阴影）
     this.bg.clear()
     if (s.box.shadowBlur && s.box.shadowBlur > 0 && s.box.shadowAlpha > 0) {
@@ -377,32 +475,34 @@ export class DialogBox {
       this.bg.rotation = 0
     }
 
-    // ---- 头像（预览用占位图形，支持圆角、描边和顶部偏移） ----
+    // ---- 头像（预览用占位图形，支持圆角、描边） ----
+    // 使用相对于 box 左上角的直接 XY 坐标定位
     this.clearAvatarChildren()
     this.avatarContainer.visible = false
     this.hasAvatar = false
-    if (hasAvatar) {
+    if (hasAvatar && (s.box.showAvatar ?? true)) {
       const placeholder = new PIXI.Graphics()
-      const avRadius = s.avatar.borderRadius ?? Math.min(avW, s.avatar.height) / 2
+      const avRadius = s.avatar.borderRadius ?? Math.min(s.avatar.width, s.avatar.height) / 2
       placeholder.beginFill(0xcccccc, 0.4)
       if (s.avatar.borderWidth && s.avatar.borderWidth > 0) {
         placeholder.lineStyle(s.avatar.borderWidth, s.avatar.borderColor ?? 0xffffff, s.avatar.borderAlpha ?? 0.5)
       }
-      placeholder.drawRoundedRect(0, 0, avW, s.avatar.height, avRadius)
+      placeholder.drawRoundedRect(0, 0, s.avatar.width, s.avatar.height, avRadius)
       placeholder.endFill()
       this.avatarContainer.addChild(placeholder)
       this.avatarContainer.position.set(
-        boxX + s.avatar.leftMargin,
-        boxY + (s.avatar.topMargin ?? 0)
+        boxX + s.avatar.x,
+        boxY + s.avatar.y
       )
       this.avatarContainer.visible = true
       this.hasAvatar = true
     }
 
     // ---- 姓名框 ----
+    // 使用相对于 box 左上角的直接 XY 坐标定位，可在框内任意位置放置
     if (speaker) {
-      const nbX = boxX + textLeftShift + s.nameBox.leftMargin
-      const nbY = boxY + 6
+      const nbX = boxX + s.nameBox.x
+      const nbY = boxY + s.nameBox.y
       const nbW = s.nameBox.width
       const nbH = s.nameBox.height
 
@@ -415,18 +515,15 @@ export class DialogBox {
       this.nameBoxBg.endFill()
       this.nameBoxBg.visible = true
 
-      // 更新姓名文本样式（含新属性）
-      this.speakerText.style.fontFamily = s.nameText.fontFamily
-      this.speakerText.style.fontSize = s.nameText.fontSize
-      this.speakerText.style.fill = s.nameText.color
-      this.speakerText.style.letterSpacing = s.nameText.letterSpacing
-      this.speakerText.style.stroke = s.nameText.strokeColor
-      this.speakerText.style.strokeThickness = s.nameText.strokeWidth
-      this.speakerText.style.fontWeight = s.nameText.fontWeight ?? 'bold'
-      this.speakerText.style.fontStyle = s.nameText.fontStyle ?? 'normal'
+      // 更新姓名文本样式
+      const ntX = s.nameText.x
+      const nameWrapWidth = Math.max(nbW - ntX * 2, 10)
+      applyNameTextStyles(this.speakerText, s.nameText, nameWrapWidth)
       this.speakerText.text = speaker
-      const ntLM = s.nameText.leftMargin ?? 10
-      this.speakerText.position.set(nbX + ntLM, nbY + (nbH - this.speakerText.height) / 2)
+      const nameOffset = computeAlignOffset(this.speakerText, nameWrapWidth, s.nameText.textAlign ?? 'left')
+      // Y 坐标：若配置了 nameText.y 则使用，否则垂直居中于姓名框
+      const ntY = s.nameText.y !== undefined ? s.nameText.y : (nbH - this.speakerText.height) / 2
+      this.speakerText.position.set(nbX + ntX + nameOffset, nbY + ntY)
       this.speakerText.visible = true
     } else {
       this.nameBoxBg.visible = false
@@ -434,31 +531,18 @@ export class DialogBox {
     }
 
     // ---- 对话文本（支持对齐、粗体、斜体） ----
-    this.dialogueText.style.fontFamily = s.dialogueText.fontFamily
-    this.dialogueText.style.fontSize = s.dialogueText.fontSize
-    this.dialogueText.style.fill = s.dialogueText.color
-    this.dialogueText.style.lineHeight = s.dialogueText.lineHeight
-    this.dialogueText.style.letterSpacing = s.dialogueText.letterSpacing
-    this.dialogueText.style.stroke = s.dialogueText.strokeColor
-    this.dialogueText.style.strokeThickness = s.dialogueText.strokeWidth
-    this.dialogueText.style.fontWeight = s.dialogueText.fontWeight ?? 'normal'
-    this.dialogueText.style.fontStyle = s.dialogueText.fontStyle ?? 'normal'
-
+    // 使用相对于 box 左上角的直接 XY 坐标和宽高定位文本区域
     const txAlign = s.dialogueText.textAlign ?? 'left'
-    const txLMargin = s.dialogueText.leftMargin
-    const txRMargin = s.dialogueText.rightMargin
-    const txBottomMargin = s.dialogueText.bottomMargin ?? 8
-    const txTopMargin = s.dialogueText.topMargin ?? 8
-    const contentWidth = boxWidth - txLMargin - txRMargin - textLeftShift
-    const txX = boxX + textLeftShift + txLMargin
-    const textAreaTopOffset = speaker ? s.nameBox.height + txTopMargin : txTopMargin
-    const textAreaY = boxY + textAreaTopOffset
-    const textAvailableHeight = boxHeight - textAreaTopOffset - txBottomMargin
+    const contentWidth = Math.round(s.dialogueText.width)
+    const txX = boxX + s.dialogueText.x
+    const textAreaY = boxY + s.dialogueText.y
+    const textAreaH = s.dialogueText.height
     const TEXT_MASK_VERTICAL_PADDING = 6
 
+    applyDialogueTextStyles(this.dialogueText, s.dialogueText, contentWidth, txAlign)
     this.dialogueText.text = text
-    this.dialogueText.style.wordWrapWidth = contentWidth
-    this.dialogueText.position.set(txX, textAreaY)
+    const alignOffset = computeAlignOffset(this.dialogueText, contentWidth, txAlign)
+    this.dialogueText.position.set(txX + alignOffset, textAreaY)
     this.dialogueText.visible = true
 
     // 裁剪遮罩
@@ -468,7 +552,7 @@ export class DialogBox {
     }
     this.dialogueMask.clear()
     this.dialogueMask.beginFill(0xffffff)
-    this.dialogueMask.drawRect(txX, textAreaY, contentWidth, Math.max(4, textAvailableHeight + TEXT_MASK_VERTICAL_PADDING))
+    this.dialogueMask.drawRect(txX, textAreaY, contentWidth, Math.max(4, textAreaH + TEXT_MASK_VERTICAL_PADDING))
     this.dialogueMask.endFill()
     this.dialogueText.mask = this.dialogueMask
 
@@ -482,21 +566,31 @@ export class DialogBox {
    * @param autoDelay 可选，自动推进延迟（ms），用于 auto 模式
    * @param audioDurationMs 可选，绑定的音频时长（ms），用于进度环同步音频进度
    */
-  async show(speaker: string | null, text: string, avator?: string, autoDelay?: number, audioDurationMs?: number, visible: boolean = true): Promise<void> {
+  async show(speaker: string | null, text: string, avator?: string, autoDelay?: number, audioDurationMs?: number, visible: boolean = true, audioPath?: string): Promise<void> {
     // 组件已销毁，跳过所有操作（防止组件卸载后异步回调访问已释放的 PIXI 资源）
     if (this._destroyed) return
 
     // 记录到历史，截断当前索引之后的部分（如果在导航后 show 新内容）
     this.dialogHistory = this.dialogHistory.slice(0, this.historyIndex + 1)
-    this.dialogHistory.push({ speaker, text, avatar: avator })
+    this.dialogHistory.push({ speaker, text, avatar: avator, audioPath })
     this.historyIndex = this.dialogHistory.length - 1
 
-    // 渲染对话框 UI
+    // 渲染对话框 UI（renderDialog 会设置完整文本，稍后逐字显示）
     await this.renderDialog(speaker, text, avator)
+    this._fullText = text
 
     this.container.visible = visible
 
-    // 计算进度环位置
+    // 逐字播放动画：从空文本开始逐字显示
+    // 跳过模式（autoDelay <= 10ms）时直接显示全文，不播放打字动画
+    if (autoDelay !== undefined && autoDelay <= 10) {
+      this.dialogueText.text = text
+      this._applyTypingPosition()
+    } else {
+      await this._startTyping(text)
+    }
+
+    // 计算进度环位置（使用相对于 box 右边缘/上边缘的直接 XY 坐标）
     const s = this.style
     const boxWidth = Math.round(VIRTUAL_WIDTH - s.box.leftMargin - s.box.rightMargin)
     const boxX = Math.round(s.box.leftMargin)
@@ -504,8 +598,8 @@ export class DialogBox {
     const boxY = s.box.topMargin !== undefined
       ? Math.round(s.box.topMargin)
       : Math.round(VIRTUAL_HEIGHT - boxHeight - s.box.bottomMargin)
-    this.progressCenterX = boxX + boxWidth - s.autoProgress.rightMargin - s.autoProgress.size / 2
-    this.progressCenterY = boxY + s.autoProgress.rightMargin + s.autoProgress.size / 2
+    this.progressCenterX = boxX + boxWidth - s.autoProgress.x
+    this.progressCenterY = boxY + s.autoProgress.y
 
     return new Promise<void>((resolve) => {
       this.resolveFn = resolve
@@ -546,10 +640,6 @@ export class DialogBox {
       ? Math.round(s.box.topMargin)
       : Math.round(VH - boxHeight - s.box.bottomMargin)
 
-    const avW = s.avatar.width
-    const avRightMargin = s.avatar.rightMargin
-    const textLeftShift = avator ? avW + avRightMargin : 0
-
     // 绘制背景（含阴影）
     this.bg.clear()
     if (s.box.shadowBlur && s.box.shadowBlur > 0 && s.box.shadowAlpha > 0) {
@@ -587,7 +677,7 @@ export class DialogBox {
     this.avatarContainer.visible = false
     this.hasAvatar = false
 
-    if (avator) {
+    if (avator && (s.box.showAvatar ?? true)) {
       try {
         // 从缓存获取或加载头像纹理
         let avatarTexture = this.avatarTextureCache.get(avator)
@@ -625,7 +715,7 @@ export class DialogBox {
             this.avatarContainer.addChild(border)
           }
 
-          this.avatarContainer.position.set(boxX + s.avatar.leftMargin, boxY + (s.avatar.topMargin ?? 0))
+          this.avatarContainer.position.set(boxX + s.avatar.x, boxY + s.avatar.y)
           this.avatarContainer.visible = true
           this.hasAvatar = true
         }
@@ -635,9 +725,10 @@ export class DialogBox {
     }
 
     // ---- 姓名框 ----
+    // 使用相对于 box 左上角的直接 XY 坐标
     if (speaker) {
-      const nbX = boxX + textLeftShift + s.nameBox.leftMargin
-      const nbY = boxY + 6
+      const nbX = boxX + s.nameBox.x
+      const nbY = boxY + s.nameBox.y
       const nbW = s.nameBox.width
       const nbH = s.nameBox.height
 
@@ -650,12 +741,14 @@ export class DialogBox {
       this.nameBoxBg.endFill()
       this.nameBoxBg.visible = true
 
-      // 更新姓名文本样式（含新属性）
-      this.speakerText.style.fontWeight = s.nameText.fontWeight ?? 'bold'
-      this.speakerText.style.fontStyle = s.nameText.fontStyle ?? 'normal'
+      // 姓名文本
+      const ntX = s.nameText.x
+      const nameWrapWidth = Math.max(nbW - ntX * 2, 10)
+      applyNameTextStyles(this.speakerText, s.nameText, nameWrapWidth)
       this.speakerText.text = speaker
-      const ntLM = s.nameText.leftMargin ?? 10
-      this.speakerText.position.set(nbX + ntLM, nbY + (nbH - this.speakerText.height) / 2)
+      const nameOffset = computeAlignOffset(this.speakerText, nameWrapWidth, s.nameText.textAlign ?? 'left')
+      const ntY = s.nameText.y !== undefined ? s.nameText.y : (nbH - this.speakerText.height) / 2
+      this.speakerText.position.set(nbX + ntX + nameOffset, nbY + ntY)
       this.speakerText.visible = true
     } else {
       this.nameBoxBg.visible = false
@@ -663,25 +756,20 @@ export class DialogBox {
     }
 
     // ---- 对话文本（支持对齐、粗体、斜体） ----
-    this.dialogueText.style.fontWeight = s.dialogueText.fontWeight ?? 'normal'
-    this.dialogueText.style.fontStyle = s.dialogueText.fontStyle ?? 'normal'
-
     const txAlign = s.dialogueText.textAlign ?? 'left'
-    const txLMargin = s.dialogueText.leftMargin
-    const txRMargin = s.dialogueText.rightMargin
-    const txBottomMargin = s.dialogueText.bottomMargin ?? 8
-    const txTopMargin = s.dialogueText.topMargin ?? 8
-    const contentWidth = boxWidth - txLMargin - txRMargin - textLeftShift
-    const txX = boxX + textLeftShift + txLMargin
-
-    const textAreaTopOffset = speaker ? s.nameBox.height + txTopMargin : txTopMargin
-    const textAreaY = boxY + textAreaTopOffset
-    const textAvailableHeight = boxHeight - textAreaTopOffset - txBottomMargin
+    const contentWidth = Math.round(s.dialogueText.width)
+    const txX = boxX + s.dialogueText.x
+    const textAreaY = boxY + s.dialogueText.y
+    const textAreaH = s.dialogueText.height
     const TEXT_MASK_VERTICAL_PADDING = 6
 
+    applyDialogueTextStyles(this.dialogueText, s.dialogueText, contentWidth, txAlign)
     this.dialogueText.text = text
-    this.dialogueText.style.wordWrapWidth = contentWidth
-    this.dialogueText.position.set(txX, textAreaY)
+    const alignOffset = computeAlignOffset(this.dialogueText, contentWidth, txAlign)
+    this.dialogueText.position.set(txX + alignOffset, textAreaY)
+
+    // 缓存文本布局参数，供逐字播放时重新计算对齐偏移
+    this._textLayout = { txX, contentWidth, txAlign, textAreaY }
 
     if (!this.dialogueMask) {
       this.dialogueMask = new PIXI.Graphics()
@@ -689,7 +777,7 @@ export class DialogBox {
     }
     this.dialogueMask.clear()
     this.dialogueMask.beginFill(0xffffff)
-    this.dialogueMask.drawRect(txX, textAreaY, contentWidth, Math.max(4, textAvailableHeight + TEXT_MASK_VERTICAL_PADDING))
+    this.dialogueMask.drawRect(txX, textAreaY, contentWidth, Math.max(4, textAreaH + TEXT_MASK_VERTICAL_PADDING))
     this.dialogueMask.endFill()
     this.dialogueText.mask = this.dialogueMask
 
@@ -705,10 +793,17 @@ export class DialogBox {
 
   /**
    * 外部调用：推进到下一步
+   * - 如果在逐字播放中 → 跳过打字显示全文，不 resolve Promise
    * - 如果在浏览历史对话框，则显示历史中的下一条，不 resolve Promise
    * - 如果已经是最新对话框，则 resolve Promise 让脚本继续执行
    */
   advance(): void {
+    // 正在逐字播放 → 跳过打字，显示全文，但不放行
+    if (this._isTyping) {
+      this._skipTyping()
+      return
+    }
+
     if (this.historyIndex < this.dialogHistory.length - 1) {
       // 正在浏览历史，向前翻一页
       this.historyIndex++
@@ -739,6 +834,36 @@ export class DialogBox {
   }
 
   /**
+   * 获取完整对话历史
+   */
+  getHistory(): HistoryEntry[] {
+    return this.dialogHistory.slice()
+  }
+
+  /**
+   * 获取当前历史索引
+   */
+  getHistoryIndex(): number {
+    return this.historyIndex
+  }
+
+  /**
+   * 跳转到历史中指定索引位置（用于对话历史面板点击）
+   */
+  goToHistory(index: number): void {
+    if (index < 0 || index >= this.dialogHistory.length) return
+    if (index === this.historyIndex) {
+      // 已经在当前位置，重新渲染一次确保显示正确
+      const step = this.dialogHistory[index]
+      this.renderDialog(step.speaker, step.text, step.avatar)
+      return
+    }
+    this.historyIndex = index
+    const step = this.dialogHistory[index]
+    this.renderDialog(step.speaker, step.text, step.avatar)
+  }
+
+  /**
    * 判断是否正在浏览历史（不是最新对话）
    */
   isBrowsingHistory(): boolean {
@@ -765,6 +890,12 @@ export class DialogBox {
   hide(): void {
     this.container.visible = false
     this.stopProgressAnimation()
+    // 清理逐字播放
+    if (this._typingTimeoutId) {
+      clearTimeout(this._typingTimeoutId)
+      this._typingTimeoutId = null
+    }
+    this._isTyping = false
     // 先 resolve 再置 null，确保被中断的对话 Promise 能放行
     this.resolveFn?.()
     this.resolveFn = null
@@ -800,11 +931,87 @@ export class DialogBox {
   }
 
   /**
+   * 设置逐字播放速度
+   * @param speed 'slow'（80ms/字）| 'medium'（40ms/字）| 'fast'（15ms/字）
+   */
+  setTypingSpeed(speed: 'slow' | 'medium' | 'fast'): void {
+    switch (speed) {
+      case 'slow': this._typingDelay = 80; break
+      case 'medium': this._typingDelay = 40; break
+      case 'fast': this._typingDelay = 15; break
+    }
+  }
+
+  /**
    * 设置舞台偏移（用于全屏模式下整体上移）
    */
   setStageOffset(x: number, y: number): void {
     this.container.x = x
     this.container.y = y
+  }
+
+  // ── 逐字播放辅助方法 ──
+
+  /**
+   * 开始逐字播放
+   * @returns Promise，所有字符显示完成后 resolve
+   */
+  private _startTyping(fullText: string): Promise<void> {
+    return new Promise<void>((resolve) => {
+      if (fullText.length === 0) {
+        resolve()
+        return
+      }
+      this._isTyping = true
+      // 清空文本，从零开始逐字显示
+      this.dialogueText.text = ''
+      this._applyTypingPosition()
+
+      let index = 0
+      const typeNext = (): void => {
+        if (this._destroyed) {
+          this._isTyping = false
+          resolve()
+          return
+        }
+        if (index < fullText.length) {
+          this.dialogueText.text = fullText.substring(0, index + 1)
+          this._applyTypingPosition()
+          index++
+          this._typingTimeoutId = setTimeout(typeNext, this._typingDelay)
+        } else {
+          // 打字完成
+          this._isTyping = false
+          this._typingTimeoutId = null
+          resolve()
+        }
+      }
+      // 立即开始打第一个字
+      typeNext()
+    })
+  }
+
+  /**
+   * 跳过逐字播放，立即显示完整文本
+   */
+  private _skipTyping(): void {
+    if (this._typingTimeoutId) {
+      clearTimeout(this._typingTimeoutId)
+      this._typingTimeoutId = null
+    }
+    this._isTyping = false
+    this.dialogueText.text = this._fullText
+    this._applyTypingPosition()
+  }
+
+  /**
+   * 根据当前文本内容重新计算对齐偏移并设置位置
+   */
+  private _applyTypingPosition(): void {
+    const layout = this._textLayout
+    if (!layout) return
+    const alignOffset = computeAlignOffset(this.dialogueText, layout.contentWidth, layout.txAlign)
+    this.dialogueText.position.set(layout.txX + alignOffset, layout.textAreaY)
   }
 
   /**
@@ -813,6 +1020,11 @@ export class DialogBox {
   destroy(): void {
     this._destroyed = true
     this.stopProgressAnimation()
+    if (this._typingTimeoutId) {
+      clearTimeout(this._typingTimeoutId)
+      this._typingTimeoutId = null
+    }
+    this._isTyping = false
     if (this.autoClickTimer) {
       clearTimeout(this.autoClickTimer)
       this.autoClickTimer = null
