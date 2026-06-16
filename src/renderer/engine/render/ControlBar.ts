@@ -53,7 +53,7 @@ const DEFAULT_STYLE: ControlBarStyle = {
     height: 28,
     borderRadius: 4,
     gap: 8,
-    fontFamily: 'Source Han Serif SC, Noto Serif SC, SimSun, serif',
+    fontFamily: "'Smiley Sans','Source Han Sans SC','Noto Sans SC','Microsoft YaHei',sans-serif",
     fontSize: 12,
     defaultColor: '#ffffff',
     defaultBackground: 0x000000,
