@@ -10,6 +10,20 @@ export class AssetResolver {
   /** 对象 ID 自增计数器 */
   private objectIdCounter = 0
 
+  /** 主资源目录的绝对路径（如 C:/project/assets/public） */
+  private publicDir = ''
+
+  /** 虚拟路径列表（绝对路径） */
+  private virtualPaths: string[] = []
+
+  /**
+   * 配置虚拟路径与公共目录（在 Runtime 启动前调用）
+   */
+  configure(publicDir: string, virtualPaths: string[]): void {
+    this.publicDir = publicDir
+    this.virtualPaths = virtualPaths
+  }
+
   /**
    * 生成唯一对象 ID，避免因 ID 与工厂名（Audio/Background/Character）冲突而覆盖工厂对象
    */
@@ -26,13 +40,42 @@ export class AssetResolver {
 
   /**
    * 根据工厂类型自动补全资产路径
+   *
+   * 先尝试主资源目录，若文件不存在则搜索虚拟路径。
+   * 虚拟路径中的文件通过 IPC 读取并返回 data URL 以确保加载兼容性。
    */
-  resolveAssetPath(rawPath: string, factoryName: string | null): string {
-    const baseDir = factoryName === 'Character' ? 'assets/public/character' :
-                    factoryName === 'Background' ? 'assets/public/background' :
-                    factoryName === 'Audio' ? 'assets/public/audio' : ''
-    if (!baseDir) return rawPath
-    return `${baseDir}/${rawPath}`
+  async resolveAssetPath(rawPath: string, factoryName: string | null): Promise<string> {
+    const subDir = factoryName === 'Character' ? 'character' :
+                   factoryName === 'Background' ? 'background' :
+                   factoryName === 'Audio' ? 'audio' : ''
+    if (!subDir) return rawPath
+
+    const relativePath = `assets/public/${subDir}/${rawPath}`
+
+    // 1) 主资源目录：构造绝对路径检查文件是否存在
+    if (this.publicDir) {
+      const primaryAbsPath = `${this.publicDir}/${subDir}/${rawPath}`.replace(/\\/g, '/')
+      try {
+        const exists = await (window as any).electronAPI?.fileExists?.(primaryAbsPath)
+        if (exists) return relativePath // 主目录资源，保持向后兼容
+      } catch { /* 降级到虚拟路径搜索 */ }
+    }
+
+    // 2) 虚拟路径搜索
+    for (const vp of this.virtualPaths) {
+      const vpAbsPath = `${vp}/${rawPath}`.replace(/\\/g, '/')
+      try {
+        const exists = await (window as any).electronAPI?.fileExists?.(vpAbsPath)
+        if (exists) {
+          // 通过 IPC 读取文件并返回 data URL（浏览器环境兼容）
+          const dataUrl = await (window as any).electronAPI?.readBinary?.(vpAbsPath)
+          if (dataUrl) return dataUrl
+        }
+      } catch { /* 跳过当前虚拟路径 */ }
+    }
+
+    // 3) 都找不到，返回相对路径（加载时会失败）
+    return relativePath
   }
 
   /**
@@ -58,6 +101,8 @@ export class AssetResolver {
    * 异步验证头像路径是否存在
    */
   async validateAvatorPath(sceneObj: SceneObject, displayName: string, onWarning?: (msg: string) => void): Promise<void> {
+    // 跳过 data URL（来自虚拟路径的资源）
+    if (sceneObj.avatorPath.startsWith('data:')) return
     try {
       const exists = await (window as any).electronAPI?.fileExists(sceneObj.avatorPath)
       if (exists === false) {
