@@ -112,7 +112,6 @@ const BUILTIN_METHODS: Record<string, MethodHandler> = {
     obj.setAlpha(val)
   },
   index: async (obj, args) => { obj.setIndex(args[0] as number) },
-  fit: async (obj) => { obj.fit() },
   setAlpha: async (obj, args, runtime) => {
     const val = Math.max(0, Math.min(1, args[0] as number)); const time = (args.length >= 2 && typeof args[1] === 'number') ? (args[1] as number) : runtime.getAsyncTime()
     if (time > 0 && obj.sprite) await runtime.getAnimQueue().animateProperty(obj.sprite, { alpha: val }, time)
@@ -290,7 +289,7 @@ export class ObjectMethodDispatcher {
           onError: runtime.onError,
           onExecutionError: runtime.onExecutionError,
           onWarning: runtime.onWarning,
-          resolveAssetPath: (raw, factory) => runtime.getAssetResolver().resolveAssetPath(raw, factory)
+          resolveAssetPath: async (raw, factory) => runtime.getAssetResolver().resolveAssetPath(raw, factory)
         }
       )
     }
