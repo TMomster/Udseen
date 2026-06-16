@@ -60,13 +60,11 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps): JSX.Ele
         left: adjustedX,
         top: adjustedY,
         zIndex: 99999,
-        background: '#252540',
-        border: '1px solid rgba(255,255,255,0.1)',
-        borderRadius: 8,
-        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border)',
+        boxShadow: '0 8px 32px var(--shadow-hover)',
         padding: '4px 0',
-        minWidth: 180,
-        backdropFilter: 'blur(8px)'
+        minWidth: 180
       }}
       onContextMenu={(e) => e.preventDefault()}
     >
@@ -77,7 +75,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps): JSX.Ele
               key={i}
               style={{
                 height: 1,
-                background: 'rgba(255,255,255,0.08)',
+                background: 'var(--border)',
                 margin: '4px 8px'
               }}
             />
@@ -97,7 +95,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps): JSX.Ele
               padding: '6px 16px',
               cursor: item.disabled ? 'not-allowed' : 'pointer',
               fontSize: 12,
-              color: item.danger ? '#ff6b6b' : item.disabled ? 'rgba(255,255,255,0.25)' : '#cdd6f4',
+              color: item.danger ? 'var(--error)' : item.disabled ? 'var(--text-muted)' : 'var(--text)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -107,7 +105,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps): JSX.Ele
             }}
             onMouseEnter={(e) => {
               if (!item.disabled) {
-                e.currentTarget.style.background = 'rgba(124,111,240,0.2)'
+                e.currentTarget.style.background = 'var(--bg-input)'
               }
             }}
             onMouseLeave={(e) => {
@@ -116,7 +114,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps): JSX.Ele
           >
             <span>{item.label}</span>
             {item.shortcut && (
-              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginLeft: 16 }}>
+              <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 16 }}>
                 {item.shortcut}
               </span>
             )}
