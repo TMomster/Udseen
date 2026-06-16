@@ -1,13 +1,16 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import * as PIXI from 'pixi.js'
 import { PixiRenderer, VIRTUAL_WIDTH, VIRTUAL_HEIGHT } from '../../engine/render/PixiRenderer'
-import { DialogBox } from '../../engine/render/DialogBox'
+import { StageSettingsPanel } from '../StageSettings/StageSettingsPanel'
+import { DialogueHistoryPanel } from '../DialogueHistory/DialogueHistoryPanel'
+import { DialogBox, HistoryEntry } from '../../engine/render/DialogBox'
 import { ChoicePanel, ChoiceStyle } from '../../engine/render/ChoicePanel'
 import { ControlBar, ControlBarStyle } from '../../engine/render/ControlBar'
 import { Runtime } from '../../engine/runtime/Runtime'
 import { parseScript } from '../../engine/parser/index'
 import { useProjectStore } from '../../store/projectStore'
 import { usePreviewStore } from '../../store/previewStore'
+import { useSettingsStore } from '../../store/settingsStore'
 
 /** 全屏模式下画面与屏幕边缘的间距（设为 0 即无间距，完全填充屏幕） */
 const FULLSCREEN_MARGIN = 0
@@ -19,13 +22,12 @@ interface CanvasRect {
 
 /**
  * 根据容器尺寸计算 Canvas 等比例缩放后的实际 CSS 尺寸（contain 模式）
- * @param vh 虚拟高度，默认 VIRTUAL_HEIGHT，cropPreview 开启时传 cameraHeight
  */
-function computeCanvasRect(containerW: number, containerH: number, vh: number = VIRTUAL_HEIGHT): CanvasRect {
-  const scale = Math.min(containerW / VIRTUAL_WIDTH, containerH / vh)
+function computeCanvasRect(containerW: number, containerH: number): CanvasRect {
+  const scale = Math.min(containerW / VIRTUAL_WIDTH, containerH / VIRTUAL_HEIGHT)
   return {
     width: Math.round(VIRTUAL_WIDTH * scale),
-    height: Math.round(vh * scale)
+    height: Math.round(VIRTUAL_HEIGHT * scale)
   }
 }
 
@@ -72,13 +74,21 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
   const controlBarRef = useRef<ControlBar | null>(null)
   /** 是否在对话框中按下方向键（防止与 pointerdown 竞争） */
   const navigateBackRef = useRef(false)
-  const stageClickHandlerRef = useRef<(() => void) | null>(null)
+  const stageClickHandlerRef = useRef<((e: PIXI.FederatedPointerEvent) => void) | null>(null)
+  const stageRightClickHandlerRef = useRef<(() => void) | null>(null)
+  /** 设置面板是否已打开（用于键盘事件屏蔽） */
+  const stageSettingsOpenRef = useRef(false)
+  /** 对话历史面板是否已打开（用于键盘事件屏蔽） */
+  const showDialogueHistoryRef = useRef(false)
   const keydownHandlerRef = useRef<((e: KeyboardEvent) => void) | null>(null)
   const keyupHandlerRef = useRef<((e: KeyboardEvent) => void) | null>(null)
   const wheelHandlerRef = useRef<((e: WheelEvent) => void) | null>(null)
+  const contextMenuHandlerRef = useRef<((e: Event) => void) | null>(null)
   /** 演出区域是否获得焦点（仅有焦点时才响应键盘/鼠标事件，避免干扰编辑器输入） */
   const previewFocusedRef = useRef(false)
-  const { content, cameraOffsetX, cameraOffsetY, calibrationOffsetX, calibrationOffsetY, cropPreview, cameraHeight } = useProjectStore()
+  /** 焦点状态用于触发重渲染（边界高亮） */
+  const [previewFocused, setPreviewFocused] = useState(false)
+  const { content, cameraOffsetX, cameraOffsetY, calibrationOffsetX, calibrationOffsetY } = useProjectStore()
   // 精确 selector：每个字段独立订阅，避免 logs 变化时无关字段触发重渲染
   const isRunning = usePreviewStore(s => s.isRunning)
   const autoMode = usePreviewStore(s => s.autoMode)
@@ -86,6 +96,9 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
   const setRunning = usePreviewStore(s => s.setRunning)
   const addLog = usePreviewStore(s => s.addLog)
   const clearLogs = usePreviewStore(s => s.clearLogs)
+  const textSpeed = useSettingsStore(s => s.textSpeed)
+  const uiVisible = usePreviewStore(s => s.uiVisible)
+  const setUiVisible = usePreviewStore(s => s.setUiVisible)
 
   // mouseCoords 使用 useRef 存储最新值 + rAF 节流 setState，避免 mousemove 高频 setState 触发重渲染
   const mouseCoordsRef = useRef({ x: 0, y: 0, isInside: false })
@@ -98,6 +111,10 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
 
   /** F3 调试覆盖层开关 */
   const [showDebug, setShowDebug] = useState(false)
+  /** 舞台设置面板开关（Esc 切换，全屏下使用） */
+  const [showStageSettings, setShowStageSettings] = useState(false)
+  /** 对话历史面板开关（鼠标滚轮上滑打开） */
+  const [showDialogueHistory, setShowDialogueHistory] = useState(false)
   /** 调试覆盖层 FPS 计数器（3秒滑动平均，每秒刷新） */
   const [debugFps, setDebugFps] = useState(0)
   /** 调试覆盖层 FPS 计数器（10秒平均，每10秒刷新） */
@@ -201,19 +218,14 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
           const containerW = rect.width - m * 2
           const containerH = rect.height - m * 2
           const st = useProjectStore.getState()
-          const initVh = st.cropPreview ? st.cameraHeight : VIRTUAL_HEIGHT
           // 校准偏移在 resize 前存入，resize 内部会通过 _applyCalibrationTransform 应用
           renderer.setCalibrationOffset(st.calibrationOffsetX, st.calibrationOffsetY)
-          // 先设置虚拟高度（改内部分辨率），再调整 CSS 尺寸
-          if (st.cropPreview) {
-            renderer.setVirtualHeight(st.cameraHeight)
-          }
           if (isFs) {
             renderer.resizeFullscreen(containerW, containerH)
           } else {
             renderer.resize(containerW, containerH)
           }
-          setCanvasRect(computeCanvasRect(containerW, containerH, initVh))
+          setCanvasRect(computeCanvasRect(containerW, containerH))
         }
 
         // 非全屏编辑模式显示16:9演出区域边界
@@ -222,8 +234,35 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
         const app = renderer.getApp()
         const sceneContainer = renderer.getSceneContainer()
         sceneContainerRef.current = sceneContainer
+
+        // 从设置同步 FPS 限制
+        const settingsState = useSettingsStore.getState()
+        if (settingsState.fpsLimit > 0) {
+          app.ticker.maxFPS = settingsState.fpsLimit
+        }
+
+        // 同步自动播放配置
+        usePreviewStore.getState().setAutoPlayConfig({
+          charDelay: settingsState.autoPlayCharDelay,
+          minDelay: settingsState.autoPlayMinDelay,
+          audioExtraDelay: settingsState.audioExtraDelay
+        })
+
         const runtime = new Runtime(app, sceneContainer)
         runtimeRef.current = runtime
+
+        // 配置资源解析器：传递公共目录与虚拟路径
+        try {
+          const publicDir = await window.electronAPI?.getPublicDir?.()
+          const virtualPaths = settingsState.virtualPaths
+            .filter((v) => v.valid)
+            .map((v) => v.path.replace(/\\/g, '/'))
+          if (publicDir) {
+            runtime.assetResolver.configure(publicDir.replace(/\\/g, '/'), virtualPaths)
+          }
+        } catch {
+          // 配置失败时使用默认路径
+        }
 
         runtime.onLog = (msg) => addLog(msg)
         runtime.onError = (err) => addLog(err, 'error')
@@ -232,6 +271,7 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
         const dialogStyle = await loadDialogStyle()
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const dialogBox = new DialogBox(app, dialogStyle as any)
+        dialogBox.setTypingSpeed(settingsState.textSpeed)
         dialogBoxRef.current = dialogBox
 
         // 加载选项样式
@@ -265,13 +305,13 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
         runtime.onWarning = (msg) => addLog(msg, 'warning')
 
         // 对话回调：使用 PixiJS 对话框代替 React DOM 覆盖层，支持 auto 模式自动推进和跳过模式
-        runtime.onDialogue = async (speaker, text, avator, audioDurationMs) => {
+        runtime.onDialogue = async (speaker, text, avator, audioDurationMs, audioPath) => {
           const canShow = !runtime.speechDisabled
 
           const state = usePreviewStore.getState()
           if (runtime.skipMode) {
             // 跳过模式：极短延迟即可
-            await dialogBox.show(speaker, text, avator, 1, undefined, canShow)
+            await dialogBox.show(speaker, text, avator, 1, undefined, canShow, audioPath)
           } else if (state.autoMode) {
             const cfg = state.autoPlayConfig
             // auto 模式：有音频则延迟 = 音频时长 + audioExtraDelay，否则每3个字符 = charDelay（最少 minDelay）
@@ -279,10 +319,10 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
               ? audioDurationMs + cfg.audioExtraDelay
               : Math.max(cfg.minDelay, Math.ceil(text.length / 3) * cfg.charDelay)
             // 进度环仍以音频时长驱动，不受 extraDelay 影响
-            await dialogBox.show(speaker, text, avator, delay, audioDurationMs, canShow)
+            await dialogBox.show(speaker, text, avator, delay, audioDurationMs, canShow, audioPath)
           } else {
             // 非 auto 模式：有音频时显示进度环同步音频，无音频时不显示
-            await dialogBox.show(speaker, text, avator, undefined, audioDurationMs, canShow)
+            await dialogBox.show(speaker, text, avator, undefined, audioDurationMs, canShow, audioPath)
           }
         }
 
@@ -300,7 +340,9 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
         app.stage.eventMode = 'static'
         // 设置 hitArea 覆盖整个虚拟舞台，确保空白区域也能响应鼠标点击
         app.stage.hitArea = new PIXI.Rectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT)
-        const stageClickHandler = (): void => {
+        const stageClickHandler = (e: PIXI.FederatedPointerEvent): void => {
+          // 仅响应左键（button 0），避免右键触发对话推进
+          if (e.button !== 0) return
           // 点击舞台时自动让演出容器获得焦点，确保后续键盘事件能被正确处理
           if (containerRef.current && !previewFocusedRef.current) {
             containerRef.current.focus()
@@ -320,10 +362,38 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
         stageClickHandlerRef.current = stageClickHandler
         app.stage.on('pointerdown', stageClickHandler)
 
+        // 右键仅控制 UI 显隐（不推进对话、不打开系统菜单）
+        const stageRightClickHandler = (): void => {
+          const st = usePreviewStore.getState()
+          st.setUiVisible(!st.uiVisible)
+        }
+        stageRightClickHandlerRef.current = stageRightClickHandler
+        app.stage.on('rightdown', stageRightClickHandler)
+
         // 键盘交互：Ctrl（按住）→ 跳过模式；Space / 下方向 → 推进；上方向 → 回到上一步
+        // Esc → 打开/关闭舞台设置（再次 Esc 返回游戏）；设置打开时屏蔽游戏按键
         // 仅在演出区域拥有焦点时生效，防止干扰编辑器输入
         const handleKeyDown = (e: KeyboardEvent): void => {
-          if (!previewFocusedRef.current && !document.fullscreenElement) return
+          if (!previewFocusedRef.current && !document.fullscreenElement && !showDialogueHistoryRef.current && !stageSettingsOpenRef.current) return
+
+          // 对话历史面板打开时，Esc 关闭面板
+          if (e.key === 'Escape') {
+            if (showDialogueHistoryRef.current) {
+              e.preventDefault()
+              showDialogueHistoryRef.current = false
+              setShowDialogueHistory(false)
+              return
+            }
+            e.preventDefault()
+            const newVal = !stageSettingsOpenRef.current
+            stageSettingsOpenRef.current = newVal
+            setShowStageSettings(newVal)
+            return
+          }
+
+          // 设置面板打开时，屏蔽所有游戏按键
+          if (stageSettingsOpenRef.current) return
+
           // Ctrl 按住 → 跳过模式（忽略等待，快速执行）
           if (e.key === 'Control') {
             e.preventDefault()
@@ -368,6 +438,8 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
         // Ctrl 松开时退出跳过模式
         const handleKeyUp = (e: KeyboardEvent): void => {
           if ((!previewFocusedRef.current && !document.fullscreenElement) || !runtimeRef.current) return
+          // 菜单打开时忽略按键
+          if (stageSettingsOpenRef.current || showDialogueHistoryRef.current) return
           if (e.key === 'Control') {
             runtimeRef.current.skipMode = false
           }
@@ -375,23 +447,29 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
         keyupHandlerRef.current = handleKeyUp
         window.addEventListener('keyup', handleKeyUp)
 
-        // 鼠标滚轮交互（视觉小说标准：向上回看历史，向下前进浏览）
+        // 鼠标滚轮交互：滚轮上滑打开对话历史面板
         // 仅在演出区域拥有焦点或全屏时生效
         const handleWheel = (e: WheelEvent): void => {
           if (!previewFocusedRef.current && !document.fullscreenElement) return
           if (!dialogBox.isDialogShowing()) return
           if (e.deltaY < 0) {
-            // 滚轮向上 → 回退到上一条对话
-            navigateBackRef.current = true  // 阻止紧随的 pointerdown
-            dialogBox.goBack()
-          } else if (e.deltaY > 0 && dialogBox.isBrowsingHistory()) {
-            // 滚轮向下 → 仅在历史浏览中前进，不 resolve Promise
-            dialogBox.advanceHistory()
+            // 滚轮向上 → 打开对话历史面板（如果尚未打开）
+            if (!showDialogueHistoryRef.current) {
+              showDialogueHistoryRef.current = true
+              setShowDialogueHistory(true)
+            }
           }
         }
         wheelHandlerRef.current = handleWheel
         if (containerRef.current) {
           containerRef.current.addEventListener('wheel', handleWheel, { passive: true })
+        }
+
+        // 阻止舞台上的浏览器默认右键菜单，统一由 rightdown 处理
+        const preventCtx = (e: Event): void => { e.preventDefault() }
+        contextMenuHandlerRef.current = preventCtx
+        if (containerRef.current) {
+          containerRef.current.addEventListener('contextmenu', preventCtx)
         }
 
         // 脚本结束/中断时自动重置 UI（隐藏对话框和选项面板）
@@ -401,6 +479,7 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
           dialogBox.hide()
           choicePanel.hide()
           controlBar.hide()
+          usePreviewStore.getState().setUiVisible(true)
         }
       })
       .catch((err: unknown) => {
@@ -422,6 +501,10 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
         app.stage.off('pointerdown', stageClickHandlerRef.current)
         stageClickHandlerRef.current = null
       }
+      if (app && stageRightClickHandlerRef.current) {
+        app.stage.off('rightdown', stageRightClickHandlerRef.current)
+        stageRightClickHandlerRef.current = null
+      }
       if (keydownHandlerRef.current) {
         window.removeEventListener('keydown', keydownHandlerRef.current)
         keydownHandlerRef.current = null
@@ -433,6 +516,10 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
       if (wheelHandlerRef.current && containerRef.current) {
         containerRef.current.removeEventListener('wheel', wheelHandlerRef.current)
         wheelHandlerRef.current = null
+      }
+      if (contextMenuHandlerRef.current && containerRef.current) {
+        containerRef.current.removeEventListener('contextmenu', contextMenuHandlerRef.current)
+        contextMenuHandlerRef.current = null
       }
       if (mouseRafRef.current !== null) {
         cancelAnimationFrame(mouseRafRef.current)
@@ -458,13 +545,8 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
       const containerW = rect.width - m * 2
       const containerH = rect.height - m * 2
       const st = useProjectStore.getState()
-      const vh = st.cropPreview ? st.cameraHeight : VIRTUAL_HEIGHT
-
-      // 设置虚拟高度（cropPreview 开启时可能 != 1080）
       // 坐标系校准偏移通过 CSS transform 作用在 canvas 元素上，不依赖 sceneContainer
       rendererRef.current.setCalibrationOffset(st.calibrationOffsetX, st.calibrationOffsetY)
-
-      rendererRef.current.setVirtualHeight(vh)
 
       if (isFs) {
         rendererRef.current.resizeFullscreen(containerW, containerH)
@@ -482,22 +564,10 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
         cssW: cr?.width,
         cssH: cr?.height,
         vh: rendererRef.current.getVirtualHeight(),
-        vw: rendererRef.current.getVirtualWidth(),
-        cropPreview: st.cropPreview,
-        cameraHeight: st.cameraHeight
+        vw: rendererRef.current.getVirtualWidth()
       })
 
-      setCanvasRect(computeCanvasRect(containerW, containerH, vh))
-      // 相机偏移（仅 cropPreview 开启时生效，始终作用于 sceneContainer，不包含校准偏移）
-      const cameraX = st.cropPreview ? st.cameraOffsetX : 0
-      const cameraY = st.cropPreview ? st.cameraOffsetY : 0
-      if (sceneContainerRef.current) {
-        sceneContainerRef.current.x = cameraX
-        sceneContainerRef.current.y = cameraY
-      }
-      dialogBoxRef.current?.setStageOffset(cameraX, cameraY)
-      choicePanelRef.current?.setStageOffset(cameraX, cameraY)
-      controlBarRef.current?.setStageOffset(cameraX, cameraY)
+      setCanvasRect(computeCanvasRect(containerW, containerH))
     }
 
     window.addEventListener('resize', doResize)
@@ -505,7 +575,7 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
     return () => {
       window.removeEventListener('resize', doResize)
     }
-  }, [cameraOffsetX, cameraOffsetY, calibrationOffsetX, calibrationOffsetY, cropPreview, cameraHeight])
+  }, [cameraOffsetX, cameraOffsetY, calibrationOffsetX, calibrationOffsetY])
 
   // 调试覆盖层 canvas 位置同步：使所有调试面板始终位于 canvas 边界内部，
   // 避免在 canvas 居中留空（letterbox）时面板出现在空白区域
@@ -529,7 +599,7 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
     requestAnimationFrame(() => requestAnimationFrame(syncDebugOverlay))
     window.addEventListener('resize', syncDebugOverlay)
     return () => window.removeEventListener('resize', syncDebugOverlay)
-  }, [showDebug, cameraOffsetX, cameraOffsetY, calibrationOffsetX, calibrationOffsetY, cropPreview, cameraHeight])
+  }, [showDebug, cameraOffsetX, cameraOffsetY, calibrationOffsetX, calibrationOffsetY])
 
   // 自动播放开启时，如果当前有对话正在等待，立即推进到下一句
   // 这样 auto 模式一开启就开始倒计时播放，而不是等待用户手动点击第一下
@@ -538,6 +608,32 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
       dialogBoxRef.current.advance()
     }
   }, [autoMode])
+
+  // 同步 showStageSettings / showDialogueHistory 状态到 ref
+  useEffect(() => {
+    stageSettingsOpenRef.current = showStageSettings
+  }, [showStageSettings])
+  useEffect(() => {
+    showDialogueHistoryRef.current = showDialogueHistory
+  }, [showDialogueHistory])
+
+  // UI 显隐变动时的同步 effect（右键或 store 外部修改后生效）
+  useEffect(() => {
+    const db = dialogBoxRef.current
+    const cp = choicePanelRef.current
+    const cb = controlBarRef.current
+    if (!db && !cp && !cb) return
+    const st = usePreviewStore.getState()
+    if (uiVisible) {
+      db?.setVisible(st.dialogueVisible)
+      cp?.setVisible(!!st.currentChoices)
+      cb?.show()
+    } else {
+      db?.setVisible(false)
+      cp?.setVisible(false)
+      cb?.hide()
+    }
+  }, [uiVisible])
 
   // 底部控制栏展开/收起：鼠标移动到舞台底部时展开，移出底部区域时收起
   useEffect(() => {
@@ -625,34 +721,7 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
     }
   }, [showDebug])
 
-  // F11 切换全屏
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'F11') {
-        e.preventDefault()
-        if (document.fullscreenElement) {
-          document.exitFullscreen()
-        } else {
-          document.documentElement.requestFullscreen()
-        }
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
-
-  // 镜头偏移：演出区域边界裁剪开启时始终应用偏移（预览和全屏一致），关闭时偏移归零
-  useEffect(() => {
-    const x = cropPreview ? cameraOffsetX : 0
-    const y = cropPreview ? cameraOffsetY : 0
-    if (sceneContainerRef.current) {
-      sceneContainerRef.current.x = x
-      sceneContainerRef.current.y = y
-    }
-    dialogBoxRef.current?.setStageOffset(x, y)
-    choicePanelRef.current?.setStageOffset(x, y)
-    controlBarRef.current?.setStageOffset(x, y)
-  }, [cameraOffsetX, cameraOffsetY, cropPreview])
+  // 全屏由 App.tsx 统一管理（F10=舞台全屏，F11=编辑器全屏）
 
   const handleRun = useCallback(async () => {
     if (!runtimeRef.current) return
@@ -754,8 +823,8 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
         style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           padding: '2px 12px',
-          background: 'linear-gradient(90deg, #1a1a2e 0%, #151528 100%)',
-          borderBottom: '1px solid rgba(124,111,240,0.1)',
+          background: 'var(--header-bg)',
+          borderBottom: '1px solid var(--border)',
           fontSize: 11,
           fontFamily: 'monospace',
           lineHeight: '22px',
@@ -764,12 +833,12 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
           flexShrink: 0,
         }}
       >
-        <span style={{ color: mouseCoords.isInside ? '#8888aa' : '#f88' }}>
+        <span style={{ color: mouseCoords.isInside ? 'var(--text-secondary)' : 'var(--warning)' }}>
           {mouseCoords.isInside
             ? `舞台坐标: (x=${mouseCoords.x}, y=${mouseCoords.y})`
             : `舞台坐标: (N, N)`}
         </span>
-        <span style={{ color: isRunning ? '#66d66a' : '#888', fontWeight: 600, letterSpacing: 0.5, textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}>
+        <span style={{ color: isRunning ? 'var(--success)' : 'var(--text-tertiary)', fontWeight: 600, letterSpacing: 0.5 }}>
           {isRunning ? `● 运行中${autoMode ? ' (自动)' : ''}` : '■ 就绪'}
         </span>
       </div>
@@ -778,23 +847,87 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
       {/* PixiJS 舞台容器——对话框和选项按钮直接在 PixiJS Canvas 上绘制 */}
       {/* tabIndex + focus/blur 确保仅在演出区域获得焦点时才响应键盘/滚轮事件，避免干扰编辑器输入 */}
       <div
-        style={{ flex: 1, position: 'relative', overflow: 'hidden', background: 'linear-gradient(180deg, #151528 0%, #1a1a2e 100%)' }}
+        style={{
+          flex: 1,
+          position: 'relative',
+          overflow: 'hidden',
+          background: 'var(--bg)',
+          outline: propIsFullscreen ? 'none' : (previewFocused ? '2px solid var(--border-focus)' : 'none'),
+          outlineOffset: -2,
+          transition: 'outline 0.15s, background 0.3s',
+          padding: propIsFullscreen ? 0 : 12 // 全屏时无间距，填满窗口
+        }}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
       >
-        <div
-          ref={containerRef}
-          tabIndex={-1}
-          style={{ position: 'relative', width: '100%', height: '100%', outline: 'none' }}
-          onFocus={() => { previewFocusedRef.current = true }}
-          onBlur={() => { previewFocusedRef.current = false }}
-        >
+      <div
+        ref={containerRef}
+        tabIndex={-1}
+        style={{ position: 'relative', width: '100%', height: '100%', outline: 'none', overflow: 'hidden' }}
+        onFocus={() => {
+          previewFocusedRef.current = true
+          setPreviewFocused(true)
+          ;(window as unknown as Record<string, unknown>).__udseenPreviewFocused = true
+        }}
+        onBlur={() => {
+          previewFocusedRef.current = false
+          setPreviewFocused(false)
+          ;(window as unknown as Record<string, unknown>).__udseenPreviewFocused = false
+        }}
+      >
           {/* PixiJS Canvas 由 PixiRenderer.init() 在此 div 内创建 */}
 
           {/* 注意：对话框(DialogBox)和选项按钮(ChoicePanel)不再使用 React DOM 覆盖层，
               而是在 PixiJS 的 app.stage 上直接绘制 PIXI Graphics + PIXI Text，
               和其他角色/背景精灵一样作为舞台资产渲染。 */}
         </div>
+
+      {/* === 对话历史面板（鼠标滚轮上滑打开） === */}
+      {showDialogueHistory && (
+        <DialogueHistoryPanel
+          history={dialogBoxRef.current?.getHistory() ?? []}
+          currentIndex={dialogBoxRef.current?.getHistoryIndex() ?? -1}
+          onSelect={(index) => {
+            showDialogueHistoryRef.current = false
+            setShowDialogueHistory(false)
+            dialogBoxRef.current?.goToHistory(index)
+          }}
+          onClose={() => {
+            showDialogueHistoryRef.current = false
+            setShowDialogueHistory(false)
+          }}
+          onPlayAudio={(audioPath) => {
+            // 使用简单 HTML5 Audio 播放历史音频片段
+            const audio = new Audio(audioPath)
+            audio.play().catch(() => {})
+          }}
+        />
+      )}
+
+      {/* === ESC 全页面菜单（Esc 切换） === */}
+      {showStageSettings && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 300,
+          }}
+        >
+          <StageSettingsPanel
+            currentSpeed={textSpeed}
+            onSpeedChange={async (speed) => {
+              const settingsStore = useSettingsStore.getState()
+              await settingsStore.updateSetting('textSpeed', speed)
+              dialogBoxRef.current?.setTypingSpeed(speed)
+            }}
+            onClose={() => {
+              stageSettingsOpenRef.current = false
+              setShowStageSettings(false)
+            }}
+            fullPage
+          />
+        </div>
+      )}
 
       {/* === F3 调试覆盖层 === */}
       {showDebug && (
@@ -844,7 +977,6 @@ export function PreviewCanvas({ isFullscreen: propIsFullscreen }: { isFullscreen
                     : '坐标: --',
                 `镜头: (${cameraOffsetX}, ${cameraOffsetY})`,
                 `校准: (${calibrationOffsetX}, ${calibrationOffsetY})`,
-                `裁剪: ${cropPreview ? '开' : '关'}  |  高度: ${cameraHeight}`,
                 `运行: ${isRunning ? '是' : '否'}  |  Auto: ${autoMode ? '开' : '关'}`,
                 `跳过: ${rt?.skipMode ? '开' : '关'}  |  对话: ${db?.isDialogShowing() ? '等待' : '无'}`,
                 `全屏: ${fs ? '是' : '否'}  |  虚拟: ${vw}×${vh}`,
