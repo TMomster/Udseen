@@ -51,7 +51,8 @@ function blockToInlineStr(block: VisualBlock): string {
     }
     case 'ObjEnd': return '.end()'
     case 'BgBegin': return '.begin()'
-    case 'BgFit': return '.fit()'
+    case 'BgIndex': return `.index(${str(block.data, 'index', '100')})`
+    case 'BgVisible': return `.visible(${str(block.data, 'able', 'true')})`
     case 'SetPos': {
       const x = str(block.data, 'x', '0')
       const y = str(block.data, 'y', '0')
@@ -422,16 +423,12 @@ function blockToCode(
       codeLines.push(`${ind}.begin()`)
       break
 
-    case 'BgFullScreen':
-      codeLines.push(`${ind}Background.full_screen()`)
+    case 'BgIndex':
+      codeLines.push(`${ind}.index(${str(block.data, 'index', '100')})`)
       break
 
-    case 'BgFullWhite':
-      codeLines.push(`${ind}Background.full_white()`)
-      break
-
-    case 'BgFit':
-      codeLines.push(`${ind}.fit()`)
+    case 'BgVisible':
+      codeLines.push(`${ind}.visible(${str(block.data, 'able', 'true')})`)
       break
 
     // === 位置 ===
