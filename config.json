@@ -1,0 +1,17 @@
+{
+  "gpuAcceleration": true,
+  "fontFamily": "'JetBrains Mono', monospace",
+  "fontSize": 14,
+  "autoSaveInterval": 30,
+  "autoPlayCharDelay": 1000,
+  "autoPlayMinDelay": 1000,
+  "audioExtraDelay": 1000,
+  "audioVolume": 80,
+  "fpsLimit": 0,
+  "resourceDir": "assets/public",
+  "virtualPaths": [],
+  "resolutionWidth": 1400,
+  "resolutionHeight": 900,
+  "openingSpeed": "fast",
+  "textSpeed": "medium"
+}
