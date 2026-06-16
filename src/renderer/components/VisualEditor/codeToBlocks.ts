@@ -146,7 +146,6 @@ function inferType(text: string): string {
   if (text.includes('\n') && /^\w+\n\.\w+\s*\(/.test(text)) return 'ObjectReference'
   // === 新增对象方法调用模式（在 ObjectMethodCall 通用匹配之前）===
   if (/^\w+\.say\s*\(/.test(text)) return 'ObjSay'
-  if (/^\w+\.fit\s*\(/.test(text)) return 'BgFit'
   if (/^\w+\.begin\s*\(/.test(text)) return 'ObjBegin'
   if (/^\w+\.visible\s*\(/.test(text)) return 'ObjVisible'
   if (/^\w+\.autobegin\s*\(/.test(text)) return 'Autobegin'
@@ -180,8 +179,6 @@ function inferType(text: string): string {
   if (/^\w+\s*=\s*Filter\.set\s*\(/.test(text)) return 'CreateFilter'
   if (/^\w+\s*=\s*Background\.set\s*\(/.test(text)) return 'CreateBackground'
   if (/^let\s+\w+\s*=\s*Background\.set\s*\(/.test(text)) return 'CreateBackground'
-  if (/^Background\.full_screen\s*\(/.test(text)) return 'BgFullScreen'
-  if (/^Background\.full_white\s*\(/.test(text)) return 'BgFullWhite'
   if (/^say\s*\(/.test(text)) return 'Say'
   if (/^speech\s*\(/.test(text)) return 'Say'
   // === Text 对象方法 ===
@@ -403,19 +400,14 @@ function parseBlockData(type: string, text: string): Record<string, unknown> {
       }
       break
     }
-    case 'BgFullScreen': {
-      const m = text.match(/Background\.full_screen\s*\(/)
-      if (m) { /* no data needed */ }
+    case 'BgIndex': {
+      const m = text.match(/^(\w+)\.index\s*\(\s*([^)]+)\s*\)/)
+      if (m) { data.target = m[1]; data.index = m[2].trim() }
       break
     }
-    case 'BgFullWhite': {
-      const m = text.match(/Background\.full_white\s*\(/)
-      if (m) { /* no data needed */ }
-      break
-    }
-    case 'BgFit': {
-      const m = text.match(/^(\w+)\.fit\s*\(/)
-      if (m) data.target = m[1]
+    case 'BgVisible': {
+      const m = text.match(/^(\w+)\.visible\s*\(\s*(\w+)\s*\)/)
+      if (m) { data.target = m[1]; data.able = m[2] }
       break
     }
     // === 文本属性方法 ===
@@ -797,7 +789,7 @@ const ACTION_TYPES_WITH_TARGET = new Set([
   'ObjLoop', 'AnimPause', 'AnimStop', 'SetSpeed',
   'Blur', 'Brightness', 'Contrast', 'Saturation', 'RgbFilter', 'ClearFilters',
   'Bw', 'Distort', 'Psychedelic',
-  'ObjSay', 'ObjBegin', 'ObjVisible', 'Autobegin', 'ObjEnd', 'BgBegin', 'BgFit',
+  'ObjSay', 'ObjBegin', 'ObjVisible', 'Autobegin', 'ObjEnd', 'BgBegin', 'BgFit', 'BgIndex', 'BgVisible',
   'AudioPlay', 'AudioLoop', 'AudioPause', 'AudioStop', 'SetVolume', 'AudioFadeOut',
   'FilterApply', 'ObjectMethodCall',
   'TextSize', 'TextBold', 'TextItalic', 'TextUline', 'TextDeline'
@@ -843,9 +835,9 @@ function getBlockLabel(type: string): string {
     'Autobegin': '自动登场',
     'ObjEnd': '销毁',
     'BgBegin': '显示背景',
-    'BgFullScreen': '全屏黑色',
-    'BgFullWhite': '全屏白色',
     'BgFit': '智能缩放',
+    'BgIndex': '背景层级',
+    'BgVisible': '可见性',
     'SetPos': '移动坐标',
     'MoveBy': '相对移动',
     'Alpha': '透明度',
@@ -1060,10 +1052,16 @@ function buildValuePorts(type: string, data: Record<string, unknown>): BlockPort
       ports.push({ id: genId(), align: 'right', kind: 'value', label: '文本内容', acceptType: 'string' })
       ports.push({ id: genId(), align: 'right', kind: 'value', label: '标识', acceptType: 'any' })
       break
-    case 'BgFullScreen':
-    case 'BgFullWhite':
     case 'BgFit':
       // 无端口，纯动作块
+      break
+    case 'BgIndex':
+      ports.push({ id: genId(), align: 'right', kind: 'value', label: '对象', acceptType: 'any' })
+      ports.push({ id: genId(), align: 'right', kind: 'value', label: '层级', acceptType: 'number' })
+      break
+    case 'BgVisible':
+      ports.push({ id: genId(), align: 'right', kind: 'value', label: '对象', acceptType: 'any' })
+      ports.push({ id: genId(), align: 'right', kind: 'value', label: '可见', acceptType: 'boolean' })
       break
     case 'TextSize':
       ports.push({ id: genId(), align: 'right', kind: 'value', label: '对象', acceptType: 'any' })
