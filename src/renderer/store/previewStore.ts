@@ -30,6 +30,8 @@ interface PreviewState {
   dialogueVisible: boolean
   /** 自动播放模式 */
   autoMode: boolean
+  /** 演出 UI（对话框/控制栏/选项面板）是否可见，右键切换 */
+  uiVisible: boolean
   /** 自动播放计时配置 */
   autoPlayConfig: {
     /** 每3个字符多少毫秒（无音频时） */
@@ -50,6 +52,7 @@ interface PreviewState {
   setDialogueVisible: (visible: boolean) => void
   setAutoMode: (auto: boolean) => void
   setAutoPlayConfig: (config: Partial<PreviewState['autoPlayConfig']>) => void
+  setUiVisible: (visible: boolean) => void
 }
 
 export const usePreviewStore = create<PreviewState>((set) => ({
@@ -60,6 +63,7 @@ export const usePreviewStore = create<PreviewState>((set) => ({
   dialogue: null,
   dialogueVisible: true,
   autoMode: false,
+  uiVisible: true,
   autoPlayConfig: {
     charDelay: 1000,
     minDelay: 1000,
@@ -89,4 +93,6 @@ export const usePreviewStore = create<PreviewState>((set) => ({
   setAutoMode: (autoMode) => set({ autoMode }),
 
   setAutoPlayConfig: (config) => set((s) => ({ autoPlayConfig: { ...s.autoPlayConfig, ...config } })),
+
+  setUiVisible: (uiVisible) => set({ uiVisible }),
 }))
