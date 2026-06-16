@@ -233,9 +233,9 @@ export function CardRenderer({ block, depth = 0, isChild = false, onContextMenu,
       case 'AudioFadeOut':
       case 'FilterApply':
       case 'BgBegin':
-      case 'BgFullScreen':
-      case 'BgFullWhite':
       case 'BgFit':
+      case 'BgIndex':
+      case 'BgVisible':
       case 'TextBold':
       case 'TextItalic':
       case 'TextUline':
