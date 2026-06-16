@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useAssetStore } from '../../store/assetStore'
 import { useSettingsStore } from '../../store/settingsStore'
+import { useProjectStore } from '../../store/projectStore'
 
 interface FileEntry {
   name: string
@@ -302,6 +303,12 @@ export function ResourceBrowser({ onResourceDrag }: ResourceBrowserProps): JSX.E
     return { icon: '📄', color: '#888' }
   }
 
+  // 判断是否为图片文件
+  const isImageFile = (name: string): boolean => {
+    const ext = name.split('.').pop()?.toLowerCase() || ''
+    return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'].includes(ext)
+  }
+
   // 获取资源类型标识
   const getResourceType = (name: string): 'image' | 'audio' | null => {
     const ext = name.split('.').pop()?.toLowerCase() || ''
@@ -600,6 +607,18 @@ export function ResourceBrowser({ onResourceDrag }: ResourceBrowserProps): JSX.E
                 <MenuItem label="虚拟资源（只读）" onClick={closeContextMenu} color="var(--text-muted)" />
               ) : (
                 <>
+                  {!contextMenu.entry.isDirectory && (
+                    <MenuItem label="在设备资源管理器打开" onClick={() => {
+                      closeContextMenu()
+                      window.electronAPI?.showItemInFolder(contextMenu.entry!.fullPath)
+                    }} />
+                  )}
+                  {!contextMenu.entry.isDirectory && isImageFile(contextMenu.entry.name) && (
+                    <MenuItem label="编辑" onClick={() => {
+                      closeContextMenu()
+                      useProjectStore.getState().openImageEditor(contextMenu.entry!.fullPath, contextMenu.entry!.name)
+                    }} />
+                  )}
                   <MenuItem label="重命名" onClick={() => startRename(contextMenu.entry!)} />
                   <div style={{ height: 1, background: 'var(--border)', margin: '4px 8px' }} />
                   <MenuItem label="删除" onClick={() => handleDelete(contextMenu.entry!)} color="var(--error)" />

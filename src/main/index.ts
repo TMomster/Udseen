@@ -226,6 +226,20 @@ ipcMain.handle('fs:readBinary', async (_event, filePath: string) => {
   return `data:${mime};base64,${buffer.toString('base64')}`
 })
 
+ipcMain.handle('fs:writeBinary', async (_event, filePath: string, dataUrl: string) => {
+  // dataUrl 格式: "data:image/png;base64,iVBORw0KGgo..."
+  const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
+  if (!matches) return false
+  const base64Data = matches[2]
+  const buffer = Buffer.from(base64Data, 'base64')
+  const dir = dirname(filePath)
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true })
+  }
+  fs.writeFileSync(filePath, buffer)
+  return true
+})
+
 ipcMain.handle('fs:readDir', async (_event, dirPath: string) => {
   const entries = fs.readdirSync(dirPath, { withFileTypes: true })
   return entries.map((e) => ({
@@ -296,6 +310,10 @@ ipcMain.handle('shell:openPublicDir', async () => {
     fs.mkdirSync(publicDir, { recursive: true })
   }
   shell.openPath(publicDir)
+})
+
+ipcMain.handle('shell:showItemInFolder', async (_event, fullPath: string) => {
+  shell.showItemInFolder(fullPath)
 })
 
 // --- 文件系统操作（资源管理器） ---

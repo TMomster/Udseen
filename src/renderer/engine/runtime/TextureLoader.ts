@@ -56,36 +56,36 @@ export class TextureLoader {
   }
 
   /**
-   * 生成彩色占位纹理（图片加载失败时使用）
+   * 生成占位纹理（资源加载失败时使用）
+   * 紫色背景矩形 + 黑色外描边 + 白色内描边 + 红色 ERROR 文字
    */
-  static createPlaceholderTexture(idHint: string): PIXI.Texture {
-    const isBg = idHint.toLowerCase().includes('bg')
-    // 使用 offscreen canvas 生成纹理，不依赖 PIXI.Application
+  static createPlaceholderTexture(_idHint: string = ''): PIXI.Texture {
+    const W = 400, H = 300
     const canvas = document.createElement('canvas')
-    canvas.width = isBg ? 800 : 200
-    canvas.height = isBg ? 600 : 400
+    canvas.width = W
+    canvas.height = H
     const ctx = canvas.getContext('2d')!
 
-    if (isBg) {
-      ctx.fillStyle = '#2d4a6f'
-      ctx.fillRect(0, 0, 800, 600)
-      ctx.strokeStyle = '#3a5f8f'
-      ctx.lineWidth = 2
-      ctx.beginPath()
-      ctx.moveTo(0, 100)
-      ctx.lineTo(800, 100)
-      ctx.moveTo(0, 200)
-      ctx.lineTo(800, 200)
-      ctx.stroke()
-    } else {
-      ctx.fillStyle = '#ff69b4'
-      roundRect(ctx, 50, 0, 100, 400, 20)
-      ctx.fill()
-      ctx.fillStyle = '#ff1493'
-      ctx.beginPath()
-      ctx.arc(100, 80, 50, 0, Math.PI * 2)
-      ctx.fill()
-    }
+    // 紫色背景
+    ctx.fillStyle = '#6a0dad'
+    ctx.fillRect(0, 0, W, H)
+
+    // 黑色外描边（6px）
+    ctx.strokeStyle = '#000000'
+    ctx.lineWidth = 6
+    ctx.strokeRect(3, 3, W - 6, H - 6)
+
+    // 白色内描边（4px）
+    ctx.strokeStyle = '#ffffff'
+    ctx.lineWidth = 4
+    ctx.strokeRect(9, 9, W - 18, H - 18)
+
+    // 红色 ERROR 文字（居中）
+    ctx.fillStyle = '#ff2222'
+    ctx.font = `bold ${Math.min(W, H) * 0.2}px Arial, "Microsoft YaHei", sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('ERROR', W / 2, H / 2)
 
     const base = new PIXI.BaseTexture(canvas, { resolution: 1 })
     return new PIXI.Texture(base)
@@ -177,17 +177,4 @@ export class TextureLoader {
   }
 }
 
-/** canvas 圆角矩形辅助函数 */
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
-  ctx.beginPath()
-  ctx.moveTo(x + r, y)
-  ctx.lineTo(x + w - r, y)
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r)
-  ctx.lineTo(x + w, y + h - r)
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
-  ctx.lineTo(x + r, y + h)
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r)
-  ctx.lineTo(x, y + r)
-  ctx.quadraticCurveTo(x, y, x + r, y)
-  ctx.closePath()
-}
+

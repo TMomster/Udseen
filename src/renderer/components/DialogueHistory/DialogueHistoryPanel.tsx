@@ -9,38 +9,6 @@ interface DialogueHistoryPanelProps {
   onPlayAudio: (audioPath: string) => void
 }
 
-const OVERLAY_STYLE: React.CSSProperties = {
-  position: 'absolute',
-  inset: 0,
-  zIndex: 400,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  background: 'rgba(0, 0, 0, 0.65)',
-  userSelect: 'none',
-}
-
-const PANEL_STYLE: React.CSSProperties = {
-  width: 520,
-  maxHeight: '70vh',
-  background: 'rgba(18, 18, 32, 0.97)',
-  border: '1px solid rgba(100, 100, 180, 0.25)',
-  borderRadius: 14,
-  boxShadow: '0 10px 50px rgba(0,0,0,0.7)',
-  color: '#e8e8f0',
-  fontFamily: "'Source Han Serif SC', 'Noto Serif SC', 'Microsoft YaHei', serif",
-  display: 'flex',
-  flexDirection: 'column',
-  overflow: 'hidden',
-}
-
-/** 将条目格式化为预览文本（最多一行） */
-function formatEntryText(entry: HistoryEntry, maxLen = 30): string {
-  const speaker = entry.speaker ?? '旁白'
-  const text = entry.text.length > maxLen ? entry.text.slice(0, maxLen) + '…' : entry.text
-  return `${speaker}：${text}`
-}
-
 export function DialogueHistoryPanel({
   history,
   currentIndex,
@@ -66,61 +34,96 @@ export function DialogueHistoryPanel({
     }
   }, [])
 
-  const entries = history.length === 0
-    ? [{ speaker: null, text: '(暂无对话历史)', avatar: undefined, audioPath: undefined }]
-    : history
+  const isEmpty = history.length === 0
 
   return (
-    <div style={OVERLAY_STYLE} onClick={onClose}>
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        zIndex: 400,
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'rgba(0, 0, 0, 0.72)',
+        backdropFilter: 'blur(2px)',
+        color: '#e8e8f0',
+        fontFamily: "'Source Han Serif SC', 'Noto Serif SC', 'Microsoft YaHei', serif",
+        userSelect: 'none',
+      }}
+    >
+      {/* 顶栏：左侧标题 + 右侧关闭按钮 */}
       <div
-        style={PANEL_STYLE}
-        onClick={(e) => e.stopPropagation()}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '18px 28px',
+          flexShrink: 0,
+          borderBottom: '1px solid rgba(100,100,180,0.12)',
+        }}
       >
-        {/* 标题栏 */}
-        <div
+        <span style={{ fontSize: 20, fontWeight: 700, color: '#d4a843', letterSpacing: 6 }}>
+          对话历史
+        </span>
+        <button
+          onClick={onClose}
           style={{
+            background: 'rgba(255,255,255,0.06)',
+            border: '1px solid rgba(100,100,180,0.2)',
+            borderRadius: 6,
+            color: '#99aabb',
+            width: 36,
+            height: 36,
+            fontSize: 18,
+            cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '16px 20px 12px',
-            borderBottom: '1px solid rgba(100,100,180,0.15)',
-            flexShrink: 0,
+            justifyContent: 'center',
+            fontFamily: 'inherit',
+            outline: 'none',
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(255,70,70,0.15)'
+            e.currentTarget.style.borderColor = 'rgba(255,70,70,0.3)'
+            e.currentTarget.style.color = '#ff6b6b'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
+            e.currentTarget.style.borderColor = 'rgba(100,100,180,0.2)'
+            e.currentTarget.style.color = '#99aabb'
           }}
         >
-          <span style={{ fontSize: 18, fontWeight: 700, color: '#d4a843', letterSpacing: 4 }}>
-            对话历史
-          </span>
-          <button
-            onClick={onClose}
+          &#x2715;
+        </button>
+      </div>
+
+      {/* 列表区域 */}
+      <div
+        ref={listRef}
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '12px 28px',
+        }}
+      >
+        {isEmpty ? (
+          <div
             style={{
-              background: 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(100,100,180,0.2)',
-              borderRadius: 6,
-              color: '#99aabb',
-              fontSize: 12,
-              padding: '4px 12px',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              outline: 'none',
+              textAlign: 'center',
+              color: '#556',
+              fontSize: 14,
+              padding: '60px 0',
+              letterSpacing: 2,
             }}
           >
-            关闭 (Esc)
-          </button>
-        </div>
-
-        {/* 列表 */}
-        <div
-          ref={listRef}
-          style={{
-            flex: 1,
-            overflowY: 'auto',
-            padding: '8px 12px',
-          }}
-        >
-          {entries.map((entry, i) => {
+            暂无对话历史
+          </div>
+        ) : (
+          history.map((entry, i) => {
             const isActive = i === currentIndex
+            const isNarration = !entry.speaker || entry.speaker === '旁白'
             const hasAudio = !!entry.audioPath
-            const displayText = formatEntryText(entry)
 
             return (
               <div
@@ -132,22 +135,22 @@ export function DialogueHistoryPanel({
                 }}
                 style={{
                   display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '8px 10px',
-                  borderRadius: 8,
-                  cursor: history.length > 0 ? 'pointer' : 'default',
+                  alignItems: 'flex-start',
+                  gap: 10,
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  cursor: 'pointer',
                   background: isActive
-                    ? 'rgba(212,168,67,0.12)'
+                    ? 'rgba(212,168,67,0.10)'
                     : i % 2 === 0
                       ? 'rgba(255,255,255,0.02)'
                       : 'transparent',
-                  border: isActive ? '1px solid rgba(212,168,67,0.3)' : '1px solid transparent',
-                  marginBottom: 4,
+                  border: isActive ? '1px solid rgba(212,168,67,0.25)' : '1px solid transparent',
+                  marginBottom: 6,
                   transition: 'all 0.1s',
                 }}
                 onMouseEnter={(e) => {
-                  if (!isActive && history.length > 0) {
+                  if (!isActive) {
                     e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
                   }
                 }}
@@ -158,77 +161,110 @@ export function DialogueHistoryPanel({
                   }
                 }}
               >
-                {/* 序号 */}
-                <span
+                {/* 左侧：序号 + 音频播放按钮 */}
+                <div
                   style={{
-                    fontSize: 10,
-                    color: isActive ? '#d4a843' : '#556',
-                    minWidth: 22,
-                    textAlign: 'center',
-                    fontFamily: "'JetBrains Mono', monospace",
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 4,
+                    minWidth: 32,
+                    paddingTop: 2,
                     flexShrink: 0,
                   }}
                 >
-                  {i + 1}
-                </span>
-
-                {/* 文本内容 */}
-                <span
-                  style={{
-                    flex: 1,
-                    fontSize: 13,
-                    color: isActive ? '#d4a843' : '#99aabb',
-                    lineHeight: 1.5,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {displayText}
-                </span>
-
-                {/* 播放音频按钮 */}
-                {hasAudio && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      if (entry.audioPath) onPlayAudio(entry.audioPath)
-                    }}
-                    title="播放此段音频"
+                  <span
                     style={{
-                      background: 'rgba(100,180,255,0.1)',
-                      border: '1px solid rgba(100,180,255,0.2)',
-                      borderRadius: 4,
-                      color: '#6bf',
-                      fontSize: 11,
-                      padding: '2px 8px',
-                      cursor: 'pointer',
-                      flexShrink: 0,
-                      fontFamily: 'inherit',
-                      outline: 'none',
+                      fontSize: 10,
+                      color: isActive ? '#d4a843' : '#556',
+                      fontFamily: "'JetBrains Mono', monospace",
+                      lineHeight: 1,
                     }}
                   >
-                    ▶ 播放
-                  </button>
-                )}
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  {hasAudio && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (entry.audioPath) onPlayAudio(entry.audioPath)
+                      }}
+                      title="播放此段音频"
+                      style={{
+                        background: 'rgba(100,180,255,0.08)',
+                        border: '1px solid rgba(100,180,255,0.15)',
+                        borderRadius: 4,
+                        color: '#6bf',
+                        fontSize: 10,
+                        width: 28,
+                        height: 22,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontFamily: 'inherit',
+                        outline: 'none',
+                        padding: 0,
+                        transition: 'all 0.15s',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(100,180,255,0.18)'
+                        e.currentTarget.style.borderColor = 'rgba(100,180,255,0.35)'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgba(100,180,255,0.08)'
+                        e.currentTarget.style.borderColor = 'rgba(100,180,255,0.15)'
+                      }}
+                    >
+                      &#x25B6;
+                    </button>
+                  )}
+                </div>
+
+                {/* 右侧：说话者标签 + 文本内容 */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {/* 说话者标识：区分角色对话与旁白 */}
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: isNarration ? '#7777aa' : isActive ? '#d4a843' : '#c8b878',
+                      letterSpacing: 1,
+                      marginBottom: 3,
+                    }}
+                  >
+                    {isNarration ? '-- 旁白 --' : entry.speaker}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: isNarration ? '#9898b8' : isActive ? '#d4a843' : '#c8ccd8',
+                      lineHeight: 1.6,
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {entry.text}
+                  </div>
+                </div>
               </div>
             )
-          })}
-        </div>
+          })
+        )}
+      </div>
 
-        {/* 底部提示 */}
-        <div
-          style={{
-            fontSize: 11,
-            color: '#556',
-            textAlign: 'center',
-            padding: '10px 20px',
-            borderTop: '1px solid rgba(100,100,180,0.1)',
-            flexShrink: 0,
-          }}
-        >
-          点击条目跳转至对应对话 | Esc 关闭
-        </div>
+      {/* 底部提示 */}
+      <div
+        style={{
+          fontSize: 11,
+          color: '#556',
+          textAlign: 'center',
+          padding: '12px 20px',
+          borderTop: '1px solid rgba(100,100,180,0.1)',
+          flexShrink: 0,
+          letterSpacing: 1,
+        }}
+      >
+        点击条目跳转至对应对话 | Esc 关闭
       </div>
     </div>
   )

@@ -61,8 +61,10 @@ interface ElectronAPI {
 
   readFile: (filePath: string) => Promise<string>
   readBinary: (filePath: string) => Promise<string>  // 返回 base64 data URL
+  writeBinary: (filePath: string, dataUrl: string) => Promise<boolean>  // 写入 base64 data URL
   readDir: (dirPath: string) => Promise<{ name: string; isDirectory: boolean }[]>
   fileExists: (filePath: string) => Promise<boolean>
+  showItemInFolder: (fullPath: string) => Promise<void>
   onMenuEvent: (channel: string, callback: () => void) => () => void
   setMenuBarVisible: (visible: boolean) => Promise<void>
   getAppPath: () => Promise<string>

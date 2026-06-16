@@ -22,6 +22,137 @@ import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
   }
 }
 
+// ---- 资源拖入括号吸附辅助函数 ----
+
+/** 从客户端坐标估算鼠标所在的行号（列号统一返回 1，函数调用检测按整行扫描，不依赖精确列） */
+function estimateLineFromClientPoint(
+  editor: monaco.editor.IStandaloneCodeEditor,
+  container: HTMLElement,
+  clientY: number
+): number | null {
+  const lineHeight = editor.getOption(monaco.editor.EditorOption.lineHeight)
+  const model = editor.getModel()
+  if (!model) return null
+  const containerRect = container.getBoundingClientRect()
+  const scrollTop = editor.getScrollTop()
+  const relativeY = clientY - containerRect.top + scrollTop
+  const line = Math.floor(relativeY / lineHeight) + 1
+  return Math.max(1, Math.min(model.getLineCount(), line))
+}
+
+/** 带引号/嵌套意识的参数拆分 */
+function splitArgs(text: string): string[] {
+  const args: string[] = []
+  let depth = 0
+  let current = ''
+  let inString = false
+  let stringChar = ''
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (inString) {
+      current += ch
+      if (ch === '\\') { i++; current += text[i] || '' }
+      else if (ch === stringChar) inString = false
+    } else if (ch === '"' || ch === "'" || ch === '`') {
+      inString = true; stringChar = ch; current += ch
+    } else if (ch === '(' || ch === '[' || ch === '{') {
+      depth++; current += ch
+    } else if (ch === ')' || ch === ']' || ch === '}') {
+      depth--; current += ch
+    } else if (ch === ',' && depth === 0) {
+      args.push(current.trim()); current = ''
+    } else {
+      current += ch
+    }
+  }
+  if (current.trim()) args.push(current.trim())
+  return args
+}
+
+/** 在指定 offset 周围搜索函数调用括号 */
+interface FunctionCallInfo {
+  openOffset: number
+  closeOffset: number
+  openPos: monaco.Position
+  closePos: monaco.Position
+  funcName: string
+  argText: string
+  argCount: number
+}
+
+/** 在指定的行文本中搜索函数调用，返回该行上所有函数调用的集合 */
+function findFunctionCallsOnLine(lineNumber: number, lineText: string, model: monaco.editor.ITextModel): FunctionCallInfo[] {
+  const results: FunctionCallInfo[] = []
+  // 使用正则查找所有 "identifier(" 模式
+  const funcCallRegex = /([a-zA-Z_]\w*)\s*\(/g
+  let match: RegExpExecArray | null
+  while ((match = funcCallRegex.exec(lineText)) !== null) {
+    const parenIdx = match.index + match[1].length
+    // 跳过空白
+    let j = parenIdx
+    while (j < lineText.length && lineText[j] === ' ') j++
+    if (j >= lineText.length || lineText[j] !== '(') {
+      // 调整 parenIdx 到实际 '(' 位置
+      const actualParen = lineText.indexOf('(', parenIdx)
+      if (actualParen === -1 || actualParen - parenIdx > 5) continue
+      j = actualParen
+    }
+    // 向前搜索匹配的 ')'
+    let depth = 1
+    let closeIdx = -1
+    const searchStart = j + 1
+    const searchEnd = Math.min(lineText.length, searchStart + 500)
+    for (let i = searchStart; i < searchEnd; i++) {
+      if (lineText[i] === '(') depth++
+      else if (lineText[i] === ')') { depth--; if (depth === 0) { closeIdx = i; break } }
+    }
+    if (closeIdx === -1) {
+      // 跨行函数调用，尝试在整个文本中搜索
+      const fullText = model.getValue()
+      const baseOffset = model.getOffsetAt(new monaco.Position(lineNumber, 1))
+      const closeInFull = fullText.indexOf(')', baseOffset + j + 1)
+      if (closeInFull === -1) continue
+      // 验证正确的嵌套
+      const subText = fullText.slice(baseOffset + j + 1, closeInFull)
+      let d = 1
+      for (const ch of subText) {
+        if (ch === '(') d++
+        else if (ch === ')') d--
+        if (d === 0) break
+      }
+      if (d !== 1) continue
+      const realClosePos = model.getPositionAt(closeInFull)
+      const argText = fullText.slice(baseOffset + j + 1, closeInFull).trim()
+      const args = argText ? splitArgs(argText) : []
+      results.push({
+        openOffset: baseOffset + j,
+        closeOffset: closeInFull,
+        openPos: model.getPositionAt(baseOffset + j),
+        closePos: realClosePos,
+        funcName: match[1],
+        argText,
+        argCount: args.length,
+      })
+      continue
+    }
+    const argText = lineText.slice(j + 1, closeIdx).trim()
+    const args = argText ? splitArgs(argText) : []
+    results.push({
+      openOffset: model.getOffsetAt(new monaco.Position(lineNumber, 1)) + j,
+      closeOffset: model.getOffsetAt(new monaco.Position(lineNumber, 1)) + closeIdx,
+      openPos: new monaco.Position(lineNumber, j + 1),
+      closePos: new monaco.Position(lineNumber, closeIdx + 1),
+      funcName: match[1],
+      argText,
+      argCount: args.length,
+    })
+  }
+  return results
+}
+
+/** 资源拖入高亮装饰的 CSS 类名 */
+const RESOURCE_DROP_CLASS_NAME = 'resource-drop-target-highlight'
+
 /**
  * Monaco Editor 封装组件
  */
@@ -33,6 +164,8 @@ export function ScriptEditor(): JSX.Element {
   const fontFamily = useSettingsStore((s) => s.fontFamily)
   const prevDecorationsRef = useRef<string[]>([])
   const colorDecorationsRef = useRef<string[]>([])
+  const dragDecorationIdsRef = useRef<string[]>([])
+  const dragTargetRef = useRef<FunctionCallInfo | null>(null)
 
   // 右键菜单状态
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null)
@@ -142,7 +275,7 @@ export function ScriptEditor(): JSX.Element {
       lastResourceKey = null
     }
 
-    /** 从行文本 + 列号解析资源上下文（按 API 参数位置嗅探） */
+    /** 从行文本解析资源上下文（扫描整行，不依赖列号，支持中文路径） */
     const RESOURCE_PARAM_POSITIONS: Record<string, Set<number>> = {
       Character: new Set([0, 2]),   // arg0=立绘, arg2=头像
       Background: new Set([0]),      // arg0=背景图
@@ -151,39 +284,36 @@ export function ScriptEditor(): JSX.Element {
 
     const getResourceContext = (
       lineText: string,
-      column: number
+      _column: number // 保留参数签名但不再依赖精确列号
     ): { factoryType: string; path: string } | null => {
-      const stringRegex = /(["'])([^"']*?)\1/g
+      // 扫描整行所有引号字符串，匹配 Character/Background/Audio.set(XXX) 模式
+      const stringRegex = /(["'])((?:(?!\1).)*)\1/g
       let match: RegExpExecArray | null
       while ((match = stringRegex.exec(lineText)) !== null) {
-        const start = match.index
-        const end = match.index + match[0].length
-        if (column >= start + 1 && column <= end - 1) {
-          const pathInString = match[2]
-          if (!pathInString || pathInString.startsWith('#')) continue
+        const pathInString = match[2]
+        if (!pathInString || pathInString.startsWith('#')) continue
 
-          const textBefore = lineText.substring(0, start).trimEnd()
-          const openParenIdx = textBefore.lastIndexOf('(')
-          if (openParenIdx < 0) return null
+        const textBefore = lineText.substring(0, match.index).trimEnd()
+        const openParenIdx = textBefore.lastIndexOf('(')
+        if (openParenIdx < 0) continue
 
-          const funcPrefix = textBefore.substring(0, openParenIdx).trimEnd()
-          const factoryMatch = funcPrefix.match(/(Character|Background|Audio)\.set$/)
-          if (!factoryMatch) return null
+        const funcPrefix = textBefore.substring(0, openParenIdx).trimEnd()
+        const factoryMatch = funcPrefix.match(/(Character|Background|Audio)\.set$/)
+        if (!factoryMatch) continue
 
-          const factoryName = factoryMatch[1]
+        const factoryName = factoryMatch[1]
 
-          // 计算参数位置：统计当前字符串前的顶层逗号数
-          const argsBefore = textBefore.substring(openParenIdx + 1)
-          const commaCount = (argsBefore.match(/,/g) || []).length
+        // 计算参数位置：统计当前字符串前的顶层逗号数
+        const argsBefore = textBefore.substring(openParenIdx + 1)
+        const commaCount = (argsBefore.match(/,/g) || []).length
 
-          // 检查该参数位置是否应嗅探
-          const validPositions = RESOURCE_PARAM_POSITIONS[factoryName]
-          if (!validPositions || !validPositions.has(commaCount)) return null
+        // 检查该参数位置是否应嗅探
+        const validPositions = RESOURCE_PARAM_POSITIONS[factoryName]
+        if (!validPositions || !validPositions.has(commaCount)) continue
 
-          return {
-            factoryType: factoryName === 'Character' ? 'character' : factoryName === 'Background' ? 'background' : 'audio',
-            path: pathInString
-          }
+        return {
+          factoryType: factoryName === 'Character' ? 'character' : factoryName === 'Background' ? 'background' : 'audio',
+          path: pathInString
         }
       }
       return null
@@ -346,7 +476,8 @@ export function ScriptEditor(): JSX.Element {
       tabSize: 2,
       renderWhitespace: 'selection',
       cursorBlinking: 'smooth',
-      smoothScrolling: true
+      smoothScrolling: true,
+      dragAndDropEnabled: false  // 禁用 Monaco 内置拖拽，避免拦截外部资源拖入事件
     })
 
     editor.onMouseMove((e) => {
@@ -529,6 +660,15 @@ export function ScriptEditor(): JSX.Element {
         document.head.appendChild(swatchStyleEl)
       }
 
+      // 注入资源拖入括号高亮样式
+      ;(() => {
+        if (document.getElementById('resource-drop-style')) return
+        const el = document.createElement('style')
+        el.id = 'resource-drop-style'
+        el.textContent = `.${RESOURCE_DROP_CLASS_NAME} { background: rgba(212,168,67,0.12); border: 1px solid rgba(212,168,67,0.35); border-radius: 3px; box-sizing: border-box; }`
+        document.head.appendChild(el)
+      })()
+
       // 通过 deltaDecorations 更新色块（保留非颜色类 decorations）
       colorDecorationsRef.current = editor.deltaDecorations(colorDecorationsRef.current, newDecorations)
     }
@@ -638,6 +778,8 @@ export function ScriptEditor(): JSX.Element {
       document.getElementById('monaco-execution-line-style')?.remove()
       document.getElementById('resource-hover-overlay')?.remove()
       document.getElementById('color-swatch-style')?.remove()
+      document.getElementById('resource-drop-style')?.remove()
+      editor.deltaDecorations(dragDecorationIdsRef.current, [])
       // 清除颜色 decorations
       editor.deltaDecorations(colorDecorationsRef.current, [])
       contentChangeListener.dispose()
@@ -724,18 +866,102 @@ export function ScriptEditor(): JSX.Element {
     }
   }, [executionLine, executionError]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 从 ResourceBrowser 拖入资源
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    if (e.dataTransfer.types.includes('application/udseen-resource')) {
-      e.preventDefault()
-      e.stopPropagation()
-      e.dataTransfer.dropEffect = 'copy'
+  // ---------- 资源拖入括号吸附 ----------
+
+  /** 清除拖入高亮装饰 */
+  const clearDragHighlight = useCallback(() => {
+    const editor = editorRef.current
+    if (!editor) return
+    const oldIds = dragDecorationIdsRef.current
+    if (oldIds.length > 0) {
+      dragDecorationIdsRef.current = editor.deltaDecorations(oldIds, [])
     }
+    dragTargetRef.current = null
   }, [])
+
+  /** 更新拖入高亮：检测鼠标所在行的函数调用括号并高亮 */
+  const updateDragHighlight = useCallback((e: React.DragEvent) => {
+    const editor = editorRef.current
+    const container = containerRef.current
+    if (!editor || !container) return
+
+    const line = estimateLineFromClientPoint(editor, container, e.clientY)
+    if (line === null) { clearDragHighlight(); return }
+
+    const model = editor.getModel()
+    if (!model) { clearDragHighlight(); return }
+
+    const lineText = model.getLineContent(line)
+    const calls = findFunctionCallsOnLine(line, lineText, model)
+    if (calls.length === 0) { clearDragHighlight(); return }
+
+    // 选择该行上最近的函数调用（如果有多个）
+    // 估算鼠标在行内的字符位置，选最近的那个
+    const containerRect = container.getBoundingClientRect()
+    const scrollLeft = editor.getScrollLeft()
+    const layoutInfo = editor.getLayoutInfo()
+    const fontInfo = editor.getOption(monaco.editor.EditorOption.fontInfo)
+    const charWidth = fontInfo.typicalHalfwidthCharacterWidth || fontInfo.fontSize * 0.6
+    const relativeX = e.clientX - containerRect.left - layoutInfo.contentLeft + scrollLeft
+    const mouseColumn = Math.max(1, Math.round(relativeX / charWidth))
+
+    let bestCall = calls[0]
+    let bestDist = Infinity
+    for (const c of calls) {
+      const callMidCol = (c.openPos.column + c.closePos.column) / 2
+      const dist = Math.abs(callMidCol - mouseColumn)
+      if (dist < bestDist) { bestDist = dist; bestCall = c }
+    }
+
+    dragTargetRef.current = bestCall
+
+    // 高亮括弧范围
+    const startPos = bestCall.openPos
+    const endPos = bestCall.closePos
+    const range = new monaco.Range(
+      startPos.lineNumber, startPos.column,
+      endPos.lineNumber, endPos.column + 1
+    )
+
+    const oldIds = dragDecorationIdsRef.current
+    dragDecorationIdsRef.current = editor.deltaDecorations(oldIds, [{
+      range,
+      options: {
+        isWholeLine: false,
+        className: RESOURCE_DROP_CLASS_NAME,
+      }
+    }])
+  }, [clearDragHighlight])
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes('application/udseen-resource')) return
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'copy'
+    // 实时检测括号
+    updateDragHighlight(e)
+  }, [updateDragHighlight])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    // 当拖出编辑器区域时清除高亮
+    const container = containerRef.current
+    if (!container) return
+    const rect = container.getBoundingClientRect()
+    const x = e.clientX
+    const y = e.clientY
+    const isOutside = x < rect.left || x > rect.right || y < rect.top || y > rect.bottom
+    if (isOutside) {
+      clearDragHighlight()
+    }
+  }, [clearDragHighlight])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
+
+    // ！关键：必须先读取 dragTargetRef.current，再 clearDragHighlight！
+    const targetInfo = dragTargetRef.current
+    clearDragHighlight()
 
     const resourceData = e.dataTransfer.getData('application/udseen-resource')
     if (!resourceData) return
@@ -749,25 +975,49 @@ export function ScriptEditor(): JSX.Element {
     } catch {
       return
     }
-
     if (!resource.path) return
 
-    // 获取当前光标位置，退回到文档末尾
+    const quotedPath = `"${resource.path}"`
+
+    if (targetInfo) {
+      // ---- 括号吸附：自动作为下一个参数插入 ----
+      const { openPos, closePos, argCount } = targetInfo
+      let insertText: string
+      let insertRange: monaco.IRange
+
+      if (argCount === 0) {
+        // func() → func("path")
+        insertText = quotedPath
+        insertRange = new monaco.Range(
+          openPos.lineNumber, openPos.column + 1,
+          openPos.lineNumber, openPos.column + 1
+        )
+      } else {
+        // func(arg1) → func(arg1, "path")
+        insertText = `, ${quotedPath}`
+        insertRange = new monaco.Range(
+          closePos.lineNumber, closePos.column,
+          closePos.lineNumber, closePos.column
+        )
+      }
+      editor.executeEdits('resource-drop', [{ range: insertRange, text: insertText }])
+      editor.focus()
+      return
+    }
+
+    // ---- 退回到光标位置插入 ----
     const position = editor.getPosition()
     if (!position) return
 
-    // 插入带引号的路径字符串
-    const quotedPath = `"${resource.path}"`
-    const range = new monaco.Range(
-      position.lineNumber,
-      position.column,
-      position.lineNumber,
-      position.column
-    )
-
-    editor.executeEdits('resource-drop', [{ range, text: quotedPath }])
+    editor.executeEdits('resource-drop', [{
+      range: new monaco.Range(
+        position.lineNumber, position.column,
+        position.lineNumber, position.column
+      ),
+      text: quotedPath
+    }])
     editor.focus()
-  }, [])
+  }, [clearDragHighlight])
 
   // 右键菜单处理
   useEffect(() => {
@@ -878,6 +1128,7 @@ export function ScriptEditor(): JSX.Element {
       style={{ width: '100%', height: '100%' }}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
+      onDragLeave={handleDragLeave}
     >
       {contextMenu && (
         <ContextMenu

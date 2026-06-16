@@ -20,6 +20,9 @@ const electronAPI = {
   readBinary: (filePath: string): Promise<string> =>
     ipcRenderer.invoke('fs:readBinary', filePath),
 
+  writeBinary: (filePath: string, dataUrl: string): Promise<boolean> =>
+    ipcRenderer.invoke('fs:writeBinary', filePath, dataUrl),
+
   readDir: (dirPath: string): Promise<{ name: string; isDirectory: boolean }[]> =>
     ipcRenderer.invoke('fs:readDir', dirPath),
 
@@ -52,6 +55,10 @@ const electronAPI = {
   // 打开公共资源目录
   openPublicDir: (): Promise<void> =>
     ipcRenderer.invoke('shell:openPublicDir'),
+
+  // 在设备资源管理器中显示文件
+  showItemInFolder: (fullPath: string): Promise<void> =>
+    ipcRenderer.invoke('shell:showItemInFolder', fullPath),
 
   // 文件系统操作（资源管理器）
   copyFile: (src: string, dest: string): Promise<boolean> =>

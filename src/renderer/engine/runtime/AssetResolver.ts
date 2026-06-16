@@ -44,38 +44,79 @@ export class AssetResolver {
    * 先尝试主资源目录，若文件不存在则搜索虚拟路径。
    * 虚拟路径中的文件通过 IPC 读取并返回 data URL 以确保加载兼容性。
    */
+  /** 尝试多种路径变体查找文件（支持中文、URL 编码等场景） */
+  private async tryFindPath(
+    baseDir: string,
+    rawPath: string,
+    subDir: string
+  ): Promise<{ found: boolean; absPath: string; relativePath: string }> {
+    const candidates: string[] = [
+      // 原始路径
+      `${baseDir}/${subDir}/${rawPath}`,
+      `${baseDir}/${rawPath}`,
+    ]
+
+    // 如果路径可能被 URL 编码，尝试解码
+    if (rawPath.includes('%')) {
+      try {
+        const decoded = decodeURIComponent(rawPath)
+        candidates.push(`${baseDir}/${subDir}/${decoded}`)
+        candidates.push(`${baseDir}/${decoded}`)
+      } catch { /* ignore */ }
+    }
+
+    // 如果路径包含未编码的非 ASCII，尝试编码
+    if (/[^\x00-\x7F]/.test(rawPath)) {
+      try {
+        const encoded = encodeURI(rawPath)
+        candidates.push(`${baseDir}/${subDir}/${encoded}`)
+        candidates.push(`${baseDir}/${encoded}`)
+      } catch { /* ignore */ }
+    }
+
+    for (const absPath of candidates) {
+      const normalized = absPath.replace(/\\/g, '/')
+      try {
+        const exists = await (window as any).electronAPI?.fileExists?.(normalized)
+        if (exists) {
+          // 构造相对路径（与原始 rawPath 对齐，仅保留 subDir/rawPath 部分）
+          const relPath = `assets/public/${subDir}/${rawPath}`
+          return { found: true, absPath: normalized, relativePath: relPath }
+        }
+      } catch { /* continue */ }
+    }
+
+    return { found: false, absPath: '', relativePath: `assets/public/${subDir}/${rawPath}` }
+  }
+
   async resolveAssetPath(rawPath: string, factoryName: string | null): Promise<string> {
     const subDir = factoryName === 'Character' ? 'character' :
                    factoryName === 'Background' ? 'background' :
                    factoryName === 'Audio' ? 'audio' : ''
     if (!subDir) return rawPath
 
-    const relativePath = `assets/public/${subDir}/${rawPath}`
+    const defaultRelativePath = `assets/public/${subDir}/${rawPath}`
 
-    // 1) 主资源目录：构造绝对路径检查文件是否存在
+    // 1) 主资源目录搜索（含路径变体）
     if (this.publicDir) {
-      const primaryAbsPath = `${this.publicDir}/${subDir}/${rawPath}`.replace(/\\/g, '/')
-      try {
-        const exists = await (window as any).electronAPI?.fileExists?.(primaryAbsPath)
-        if (exists) return relativePath // 主目录资源，保持向后兼容
-      } catch { /* 降级到虚拟路径搜索 */ }
+      const result = await this.tryFindPath(this.publicDir, rawPath, subDir)
+      if (result.found) return result.relativePath
     }
 
-    // 2) 虚拟路径搜索
+    // 2) 虚拟路径搜索（含路径变体）
     for (const vp of this.virtualPaths) {
-      const vpAbsPath = `${vp}/${rawPath}`.replace(/\\/g, '/')
-      try {
-        const exists = await (window as any).electronAPI?.fileExists?.(vpAbsPath)
-        if (exists) {
-          // 通过 IPC 读取文件并返回 data URL（浏览器环境兼容）
-          const dataUrl = await (window as any).electronAPI?.readBinary?.(vpAbsPath)
+      const result = await this.tryFindPath(vp, rawPath, subDir)
+      if (result.found) {
+        // 通过 IPC 读取文件并返回 data URL（浏览器环境兼容）
+        try {
+          const dataUrl = await (window as any).electronAPI?.readBinary?.(result.absPath)
           if (dataUrl) return dataUrl
-        }
-      } catch { /* 跳过当前虚拟路径 */ }
+        } catch { /* 跳过 */ }
+      }
     }
 
-    // 3) 都找不到，返回相对路径（加载时会失败）
-    return relativePath
+    // 3) 都找不到，返回相对路径（加载时会使用占位纹理）
+    return defaultRelativePath
   }
 
   /**
