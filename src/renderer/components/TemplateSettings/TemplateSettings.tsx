@@ -31,6 +31,8 @@ interface PropDef {
 
 /** 字体选项：{ label: 中文显示名, value: CSS font-family 值 } */
 const COMMON_FONTS: { label: string; value: string }[] = [
+  // ══ 置顶：得意黑（Udseen 内置默认首选字体） ══
+  { label: '得意黑',           value: "'Smiley Sans','Source Han Sans SC','Noto Sans SC','Microsoft YaHei',SimHei,sans-serif" },
   // ── 置顶：思源宋体 ──
   { label: '思源宋体',         value: "'Source Han Serif SC','Noto Serif SC',SimSun,serif" },
   { label: '思源宋体 Light',   value: "'Source Han Serif SC Light','Noto Serif SC ExtraLight',SimSun,serif" },
@@ -94,11 +96,10 @@ const SECTIONS: SectionDef[] = [
     category: 'dialog',
     groupKey: 'nameBox',
     properties: [
+      { key: 'x', label: '水平位置 (X)', type: 'number', min: 0, max: 1920, step: 1 },
+      { key: 'y', label: '垂直位置 (Y)', type: 'number', min: 0, max: 1080, step: 1 },
       { key: 'width', label: '宽度', type: 'number', min: 40, max: 400, step: 5 },
       { key: 'height', label: '高度', type: 'number', min: 20, max: 120, step: 2 },
-      { key: 'leftMargin', label: '左侧边距', type: 'number', min: 0, max: 200, step: 1 },
-      { key: 'rightMargin', label: '右侧边距', type: 'number', min: 0, max: 200, step: 1 },
-      { key: 'bottomMargin', label: '底部边距', type: 'number', min: 0, max: 200, step: 1 },
       { key: 'backgroundColor', label: '背景色', type: 'color-int' },
       { key: 'backgroundAlpha', label: '背景透明度', type: 'number', min: 0, max: 1, step: 0.01 },
       { key: 'borderColor', label: '描边颜色', type: 'color-int' },
@@ -113,12 +114,10 @@ const SECTIONS: SectionDef[] = [
     category: 'dialog',
     groupKey: 'avatar',
     properties: [
+      { key: 'x', label: '水平位置 (X)', type: 'number', min: 0, max: 1920, step: 1 },
+      { key: 'y', label: '垂直位置 (Y)', type: 'number', min: 0, max: 1080, step: 1 },
       { key: 'width', label: '宽度', type: 'number', min: 20, max: 200, step: 2 },
       { key: 'height', label: '高度', type: 'number', min: 20, max: 200, step: 2 },
-      { key: 'leftMargin', label: '左侧边距', type: 'number', min: 0, max: 100, step: 1 },
-      { key: 'rightMargin', label: '右侧边距', type: 'number', min: 0, max: 100, step: 1 },
-      { key: 'topMargin', label: '顶部边距', type: 'number', min: 0, max: 200, step: 1 },
-      { key: 'bottomMargin', label: '底部边距', type: 'number', min: 0, max: 200, step: 1 },
       { key: 'borderRadius', label: '头像圆角', type: 'number', min: 0, max: 100, step: 1 },
       { key: 'borderColor', label: '描边颜色', type: 'color-int' },
       { key: 'borderWidth', label: '描边宽度', type: 'number', min: 0, max: 8, step: 1 },
@@ -137,10 +136,10 @@ const SECTIONS: SectionDef[] = [
       { key: 'fontStyle', label: '字形', type: 'select', options: ['normal', 'italic'] },
       { key: 'textAlign', label: '对齐方式', type: 'select', options: ['left', 'center', 'right'] },
       { key: 'color', label: '颜色', type: 'color-hex' },
-      { key: 'topMargin', label: '顶部边距', type: 'number', min: 0, max: 200, step: 1 },
-      { key: 'leftMargin', label: '左侧边距', type: 'number', min: 0, max: 200, step: 1 },
-      { key: 'rightMargin', label: '右侧边距', type: 'number', min: 0, max: 200, step: 1 },
-      { key: 'bottomMargin', label: '底部边距', type: 'number', min: 0, max: 200, step: 1 },
+      { key: 'x', label: '水平位置 (X)', type: 'number', min: 0, max: 1920, step: 1 },
+      { key: 'y', label: '垂直位置 (Y)', type: 'number', min: 0, max: 1080, step: 1 },
+      { key: 'width', label: '文本宽度', type: 'number', min: 10, max: 2000, step: 1 },
+      { key: 'height', label: '文本高度', type: 'number', min: 10, max: 1080, step: 1 },
       { key: 'lineHeight', label: '行间距', type: 'number', min: 16, max: 80, step: 1 },
       { key: 'letterSpacing', label: '字间距', type: 'number', min: 0, max: 20, step: 0.5 },
       { key: 'strokeColor', label: '描边颜色', type: 'color-hex' },
@@ -159,7 +158,8 @@ const SECTIONS: SectionDef[] = [
       { key: 'fontWeight', label: '字重', type: 'select', options: ['normal', 'bold'] },
       { key: 'fontStyle', label: '字形', type: 'select', options: ['normal', 'italic'] },
       { key: 'color', label: '颜色', type: 'color-hex' },
-      { key: 'leftMargin', label: '左侧边距', type: 'number', min: 0, max: 100, step: 1 },
+      { key: 'textAlign', label: '对齐方式', type: 'select', options: ['left', 'center', 'right'] },
+      { key: 'x', label: '水平偏移 (X)', type: 'number', min: 0, max: 200, step: 1 },
       { key: 'letterSpacing', label: '字间距', type: 'number', min: 0, max: 20, step: 0.5 },
       { key: 'strokeColor', label: '描边颜色', type: 'color-hex' },
       { key: 'strokeAlpha', label: '描边透明度', type: 'number', min: 0, max: 1, step: 0.01 },
@@ -176,7 +176,8 @@ const SECTIONS: SectionDef[] = [
       { key: 'size', label: '圆环直径', type: 'number', min: 10, max: 80, step: 2 },
       { key: 'color', label: '圆环颜色', type: 'color-int' },
       { key: 'width', label: '圆环粗细', type: 'number', min: 1, max: 8, step: 1 },
-      { key: 'rightMargin', label: '右侧边距', type: 'number', min: 0, max: 100, step: 1 }
+      { key: 'x', label: '距右边缘距离', type: 'number', min: 0, max: 200, step: 1 },
+      { key: 'y', label: '距上边缘距离', type: 'number', min: 0, max: 200, step: 1 }
     ]
   },
   // === 分支选项 ===
@@ -335,6 +336,14 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
   const previewContainerRef = useRef<HTMLDivElement>(null)
   const [previewScale, setPreviewScale] = useState(1)
 
+  // ---- 系统字体枚举 ----
+  const [systemFonts, setSystemFonts] = useState<string[]>([])
+  useEffect(() => {
+    ;(window as any).electronAPI?.getSystemFonts?.().then((fonts: string[]) => {
+      setSystemFonts(fonts || [])
+    }).catch(() => { /* 忽略字体枚举失败 */ })
+  }, [])
+
   // ---- 预览开关状态 ----
   const [showExampleCharacter, setShowExampleCharacter] = useState(true)
   const [showExampleBackground, setShowExampleBackground] = useState(true)
@@ -426,27 +435,29 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
           }))
           break
         }
-        case 'avatar-pos': {
-          const newLM = clamp(Math.round(drag.startVal1 + dx), 0, 100)
-          setDialogStyle((prev) => ({
-            ...prev,
-            avatar: { ...(prev.avatar as Record<string, unknown> ?? {}), leftMargin: newLM }
-          }))
-          break
-        }
-        case 'name-pos': {
-          const newLM = clamp(Math.round(drag.startVal1 + dx), 0, 200)
-          setDialogStyle((prev) => ({
-            ...prev,
-            nameBox: { ...(prev.nameBox as Record<string, unknown> ?? {}), leftMargin: newLM }
-          }))
-          break
-        }
         case 'box-bottom-edge': {
           const newVal = clamp(Math.round(drag.startVal1 - dy), 0, 200)
           setDialogStyle((prev) => ({
             ...prev,
             box: { ...(prev.box as Record<string, unknown> ?? {}), bottomMargin: newVal }
+          }))
+          break
+        }
+        // 头像水平位置（X）
+        case 'avatar-x': {
+          const newX = clamp(Math.round(drag.startVal1 + dx), 0, 500)
+          setDialogStyle((prev) => ({
+            ...prev,
+            avatar: { ...(prev.avatar as Record<string, unknown> ?? {}), x: newX }
+          }))
+          break
+        }
+        // 头像垂直位置（Y）
+        case 'avatar-y': {
+          const newY = clamp(Math.round(drag.startVal1 + dy), 0, 500)
+          setDialogStyle((prev) => ({
+            ...prev,
+            avatar: { ...(prev.avatar as Record<string, unknown> ?? {}), y: newY }
           }))
           break
         }
@@ -466,6 +477,24 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
           }))
           break
         }
+        // 姓名框水平位置（X）
+        case 'namebox-x': {
+          const newX = clamp(Math.round(drag.startVal1 + dx), 0, 500)
+          setDialogStyle((prev) => ({
+            ...prev,
+            nameBox: { ...(prev.nameBox as Record<string, unknown> ?? {}), x: newX }
+          }))
+          break
+        }
+        // 姓名框垂直位置（Y）
+        case 'namebox-y': {
+          const newY = clamp(Math.round(drag.startVal1 + dy), 0, 500)
+          setDialogStyle((prev) => ({
+            ...prev,
+            nameBox: { ...(prev.nameBox as Record<string, unknown> ?? {}), y: newY }
+          }))
+          break
+        }
         case 'name-w': {
           const newVal = clamp(Math.round(drag.startVal1 + dx), 40, 400)
           setDialogStyle((prev) => ({
@@ -482,43 +511,61 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
           }))
           break
         }
-        case 'text-left-edge': {
-          const newVal = clamp(Math.round(drag.startVal1 + dx), 0, 200)
+        // 对话文本 X 位置
+        case 'text-x': {
+          const newX = clamp(Math.round(drag.startVal1 + dx), 0, 500)
           setDialogStyle((prev) => ({
             ...prev,
-            dialogueText: { ...(prev.dialogueText as Record<string, unknown> ?? {}), leftMargin: newVal }
+            dialogueText: { ...(prev.dialogueText as Record<string, unknown> ?? {}), x: newX }
           }))
           break
         }
+        // 对话文本宽度（通过右边缘拖拽调整）
         case 'text-right-edge': {
-          const newVal = clamp(Math.round(drag.startVal1 - dx), 0, 200)
+          const newW = clamp(Math.round(drag.startVal1 + dx), 10, 2000)
           setDialogStyle((prev) => ({
             ...prev,
-            dialogueText: { ...(prev.dialogueText as Record<string, unknown> ?? {}), rightMargin: newVal }
+            dialogueText: { ...(prev.dialogueText as Record<string, unknown> ?? {}), width: newW }
           }))
           break
         }
+        // 对话文本 Y 位置
+        case 'text-y': {
+          const newY = clamp(Math.round(drag.startVal1 + dy), 0, 500)
+          setDialogStyle((prev) => ({
+            ...prev,
+            dialogueText: { ...(prev.dialogueText as Record<string, unknown> ?? {}), y: newY }
+          }))
+          break
+        }
+        // 对话文本高度（通过底边缘拖拽调整）
         case 'text-bottom-edge': {
-          const newVal = clamp(Math.round(drag.startVal1 - dy), 0, 200)
+          const newH = clamp(Math.round(drag.startVal1 + dy), 10, 500)
           setDialogStyle((prev) => ({
             ...prev,
-            dialogueText: { ...(prev.dialogueText as Record<string, unknown> ?? {}), bottomMargin: newVal }
+            dialogueText: { ...(prev.dialogueText as Record<string, unknown> ?? {}), height: newH }
           }))
           break
         }
-        case 'avatar-right': {
-          const newVal = clamp(Math.round(drag.startVal1 + dx), 0, 100)
+        // 对话文本居中参考线：移动中心（保持宽度不变）
+        case 'text-center-line': {
+          const delta = Math.round(dx)
+          const centerStart = (drag.startVal1 as number) + (drag.startVal2 as number) / 2
+          const newCenter = centerStart + delta
+          const curWidth = (drag.startVal2 as number) // stored as width
+          const newX = clamp(Math.round(newCenter - curWidth / 2), 0, 500)
           setDialogStyle((prev) => ({
             ...prev,
-            avatar: { ...(prev.avatar as Record<string, unknown> ?? {}), rightMargin: newVal }
+            dialogueText: { ...(prev.dialogueText as Record<string, unknown> ?? {}), x: newX }
           }))
           break
         }
-        case 'avatar-bottom': {
-          const newVal = clamp(Math.round(drag.startVal1 + dy), 0, 200)
+        // 姓名框居中参考线：拖动调整 nameBox.x（移动姓名框位置）
+        case 'name-center-line': {
+          const newX = clamp(Math.round(drag.startVal1 + dx), 0, 500)
           setDialogStyle((prev) => ({
             ...prev,
-            avatar: { ...(prev.avatar as Record<string, unknown> ?? {}), bottomMargin: newVal }
+            nameBox: { ...(prev.nameBox as Record<string, unknown> ?? {}), x: newX }
           }))
           break
         }
@@ -576,13 +623,23 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
       await window.electronAPI.writeFile(`${lightD}/dialog.json`, JSON.stringify(DEFAULT_LIGHT_DIALOG, null, 2))
       await window.electronAPI.writeFile(`${lightD}/choice.json`, JSON.stringify(DEFAULT_LIGHT_CHOICE, null, 2))
       await window.electronAPI.writeFile(`${lightD}/controlbar.json`, JSON.stringify(DEFAULT_LIGHT_CONTROLBAR, null, 2))
+      // 写 movie 方案
+      await window.electronAPI.writeFile(`${sd}/movie/dialog.json`, JSON.stringify(MOVIE_DIALOG, null, 2))
+      await window.electronAPI.writeFile(`${sd}/movie/choice.json`, JSON.stringify(MOVIE_CHOICE, null, 2))
+      await window.electronAPI.writeFile(`${sd}/movie/controlbar.json`, JSON.stringify(MOVIE_CONTROLBAR, null, 2))
+      // 写 transparent 方案
+      await window.electronAPI.writeFile(`${sd}/transparent/dialog.json`, JSON.stringify(TRANSPARENT_DIALOG, null, 2))
+      await window.electronAPI.writeFile(`${sd}/transparent/choice.json`, JSON.stringify(TRANSPARENT_CHOICE, null, 2))
+      await window.electronAPI.writeFile(`${sd}/transparent/controlbar.json`, JSON.stringify(TRANSPARENT_CONTROLBAR, null, 2))
       // 写索引
       const idx: SchemesIndex = {
         version: '1.0',
         activeScheme: 'dark',
         schemes: [
           { id: 'dark', name: '深色主题' },
-          { id: 'light', name: '浅色主题' }
+          { id: 'light', name: '浅色主题' },
+          { id: 'movie', name: '电影' },
+          { id: 'transparent', name: '透明' }
         ]
       }
       await window.electronAPI.writeFile(`${sd}/${SCHEMES_JSON}`, JSON.stringify(idx, null, 2))
@@ -637,11 +694,11 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
   const DEFAULT_DIALOG: StyleData = {
     version: '1.3',
     box: { height: 220, leftMargin: 80, rightMargin: 80, bottomMargin: 30, backgroundColor: 987939, backgroundAlpha: 0.85, borderColor: 2955610, borderAlpha: 0.5, borderWidth: 1, borderRadius: 12, shadowBlur: 20, shadowColor: 0, shadowAlpha: 0.35, shadowOffsetX: 0, shadowOffsetY: 6 },
-    nameBox: { width: 160, height: 40, leftMargin: 24, rightMargin: 24, bottomMargin: 8, backgroundColor: 1712698, backgroundAlpha: 0.9, borderColor: 6512563, borderAlpha: 0.4, borderWidth: 1, borderRadius: 6 },
-    avatar: { width: 130, height: 130, leftMargin: 16, rightMargin: 14, bottomMargin: 12, topMargin: 0, borderRadius: 12, borderColor: 6512563, borderWidth: 2, borderAlpha: 0.5 },
-    dialogueText: { fontFamily: 'Source Han Serif SC, Noto Serif SC, SimSun, serif', fontSize: 26, color: '#e8e8f0', leftMargin: 12, rightMargin: 12, bottomMargin: 16, lineHeight: 40, letterSpacing: 1, strokeColor: '#000000', strokeAlpha: 0, strokeWidth: 0, textAlign: 'left', fontWeight: 'normal', fontStyle: 'normal' },
-    nameText: { fontFamily: 'Source Han Serif SC, Noto Serif SC, SimSun, serif', fontSize: 18, color: '#d4a843', letterSpacing: 2, strokeColor: '#000000', strokeAlpha: 0, strokeWidth: 0, leftMargin: 10, fontWeight: 'bold', fontStyle: 'normal' },
-    autoProgress: { size: 36, color: 0x7c6ff0, width: 3, rightMargin: 16 },
+    nameBox: { x: 24, y: 6, width: 160, height: 40, backgroundColor: 1712698, backgroundAlpha: 0.9, borderColor: 6512563, borderAlpha: 0.4, borderWidth: 1, borderRadius: 6 },
+    avatar: { x: 16, y: 0, width: 130, height: 130, borderRadius: 12, borderColor: 6512563, borderWidth: 2, borderAlpha: 0.5 },
+    dialogueText: { fontFamily: "'Smiley Sans','Source Han Sans SC','Noto Sans SC','Microsoft YaHei',sans-serif", fontSize: 26, color: '#e8e8f0', x: 12, y: 54, width: 1736, height: 150, lineHeight: 40, letterSpacing: 1, strokeColor: '#000000', strokeAlpha: 0, strokeWidth: 0, textAlign: 'left', fontWeight: 'normal', fontStyle: 'normal' },
+    nameText: { fontFamily: "'Smiley Sans','Source Han Sans SC','Noto Sans SC','Microsoft YaHei',sans-serif", fontSize: 18, color: '#d4a843', letterSpacing: 2, strokeColor: '#000000', strokeAlpha: 0, strokeWidth: 0, x: 10, textAlign: 'left', fontWeight: 'bold', fontStyle: 'normal' },
+    autoProgress: { size: 36, color: 0x7c6ff0, width: 3, x: 34, y: 34 },
   } as unknown as StyleData
 
   const DEFAULT_CHOICE: StyleData = {
@@ -649,17 +706,17 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
     panel: { horizontalAlign: 'center', verticalAlign: 'center', marginX: 0, marginY: 0 },
     button: { width: 600, height: 64, backgroundColor: 987939, backgroundColorHover: 1712698, backgroundAlpha: 0.85, borderColor: 4010859, borderAlpha: 0.4, borderWidth: 1, borderRadius: 8, buttonGap: 14, textColorHover: '#ffffff' },
     buttonDisabled: { backgroundColor: 4473924, backgroundAlpha: 0.4, borderColor: 5592405, borderAlpha: 0.3, borderWidth: 1, textColor: '#888888' },
-    text: { textAlign: 'center', fontFamily: 'Source Han Serif SC, Noto Serif SC, SimSun, serif', fontSize: 26, color: '#e8e8f0', leftMargin: 16, rightMargin: 16, bottomMargin: 0, letterSpacing: 1, strokeColor: '#000000', strokeAlpha: 0, strokeWidth: 0, fontWeight: 'normal', fontStyle: 'normal' }
+    text: { textAlign: 'center', fontFamily: "'Smiley Sans','Source Han Sans SC','Noto Sans SC','Microsoft YaHei',sans-serif", fontSize: 26, color: '#e8e8f0', leftMargin: 16, rightMargin: 16, bottomMargin: 0, letterSpacing: 1, strokeColor: '#000000', strokeAlpha: 0, strokeWidth: 0, fontWeight: 'normal', fontStyle: 'normal' }
   } as unknown as StyleData
 
   const DEFAULT_LIGHT_DIALOG: StyleData = {
     version: '1.3',
     box: { height: 220, leftMargin: 80, rightMargin: 80, bottomMargin: 30, backgroundColor: 16119285, backgroundAlpha: 0.92, borderColor: 13421772, borderAlpha: 0.6, borderWidth: 1, borderRadius: 12, shadowBlur: 15, shadowColor: 0, shadowAlpha: 0.15, shadowOffsetX: 0, shadowOffsetY: 4 },
-    nameBox: { width: 160, height: 40, leftMargin: 24, rightMargin: 24, bottomMargin: 8, backgroundColor: 4886745, backgroundAlpha: 0.9, borderColor: 3503805, borderAlpha: 0.3, borderWidth: 0, borderRadius: 6 },
-    avatar: { width: 130, height: 130, leftMargin: 16, rightMargin: 14, bottomMargin: 12, topMargin: 0, borderRadius: 12, borderColor: 6710886, borderWidth: 2, borderAlpha: 0.4 },
-    dialogueText: { fontFamily: 'Source Han Serif SC, Noto Serif SC, SimSun, serif', fontSize: 26, color: '#333333', leftMargin: 12, rightMargin: 12, bottomMargin: 16, lineHeight: 40, letterSpacing: 1, strokeColor: '#000000', strokeAlpha: 0, strokeWidth: 0, textAlign: 'left', fontWeight: 'normal', fontStyle: 'normal' },
-    nameText: { fontFamily: 'Source Han Serif SC, Noto Serif SC, SimSun, serif', fontSize: 18, color: '#ffffff', letterSpacing: 2, strokeColor: '#000000', strokeAlpha: 0, strokeWidth: 0, leftMargin: 10, fontWeight: 'bold', fontStyle: 'normal' },
-    autoProgress: { size: 36, color: 0x7c6ff0, width: 3, rightMargin: 16 },
+    nameBox: { x: 24, y: 6, width: 160, height: 40, backgroundColor: 4886745, backgroundAlpha: 0.9, borderColor: 3503805, borderAlpha: 0.3, borderWidth: 0, borderRadius: 6 },
+    avatar: { x: 16, y: 0, width: 130, height: 130, borderRadius: 12, borderColor: 6710886, borderWidth: 2, borderAlpha: 0.4 },
+    dialogueText: { fontFamily: "'Smiley Sans','Source Han Sans SC','Noto Sans SC','Microsoft YaHei',sans-serif", fontSize: 26, color: '#333333', x: 12, y: 54, width: 1736, height: 150, lineHeight: 40, letterSpacing: 1, strokeColor: '#000000', strokeAlpha: 0, strokeWidth: 0, textAlign: 'left', fontWeight: 'normal', fontStyle: 'normal' },
+    nameText: { fontFamily: "'Smiley Sans','Source Han Sans SC','Noto Sans SC','Microsoft YaHei',sans-serif", fontSize: 18, color: '#ffffff', letterSpacing: 2, strokeColor: '#000000', strokeAlpha: 0, strokeWidth: 0, x: 10, textAlign: 'left', fontWeight: 'bold', fontStyle: 'normal' },
+    autoProgress: { size: 36, color: 0x7c6ff0, width: 3, x: 34, y: 34 },
   } as unknown as StyleData
 
   const DEFAULT_LIGHT_CHOICE: StyleData = {
@@ -667,14 +724,14 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
     panel: { horizontalAlign: 'center', verticalAlign: 'center', marginX: 0, marginY: 0 },
     button: { width: 600, height: 64, backgroundColor: 16777215, backgroundColorHover: 15790320, backgroundAlpha: 0.9, borderColor: 13421772, borderAlpha: 0.5, borderWidth: 1, borderRadius: 8, buttonGap: 14, textColorHover: '#000000' },
     buttonDisabled: { backgroundColor: 14737632, backgroundAlpha: 0.5, borderColor: 13421772, borderAlpha: 0.3, borderWidth: 1, textColor: '#999999' },
-    text: { textAlign: 'center', fontFamily: 'Source Han Serif SC, Noto Serif SC, SimSun, serif', fontSize: 26, color: '#333333', leftMargin: 16, rightMargin: 16, bottomMargin: 0, letterSpacing: 1, strokeColor: '#000000', strokeAlpha: 0, strokeWidth: 0, fontWeight: 'normal', fontStyle: 'normal' }
+    text: { textAlign: 'center', fontFamily: "'Smiley Sans','Source Han Sans SC','Noto Sans SC','Microsoft YaHei',sans-serif", fontSize: 26, color: '#333333', leftMargin: 16, rightMargin: 16, bottomMargin: 0, letterSpacing: 1, strokeColor: '#000000', strokeAlpha: 0, strokeWidth: 0, fontWeight: 'normal', fontStyle: 'normal' }
   } as unknown as StyleData
 
   const DEFAULT_CONTROLBAR: StyleData = {
     bar: { height: 52, backgroundColor: 0, backgroundAlpha: 0.4 },
     button: {
       autoWidth: 84, height: 28, borderRadius: 4, gap: 8,
-      fontFamily: 'Source Han Serif SC, Noto Serif SC, SimSun, serif', fontSize: 12,
+      fontFamily: "'Smiley Sans','Source Han Sans SC','Noto Sans SC','Microsoft YaHei',sans-serif", fontSize: 12,
       defaultColor: '#cccccc', defaultBackground: 0, defaultBackgroundAlpha: 0.5,
       defaultBorderColor: 16777215, defaultBorderAlpha: 0.2, defaultFontWeight: 'normal',
       activeColor: '#000000', activeBackground: 16766720, activeBackgroundAlpha: 0.7,
@@ -686,7 +743,7 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
     bar: { height: 52, backgroundColor: 0, backgroundAlpha: 0.3 },
     button: {
       autoWidth: 84, height: 28, borderRadius: 4, gap: 8,
-      fontFamily: 'Source Han Serif SC, Noto Serif SC, SimSun, serif', fontSize: 12,
+      fontFamily: "'Smiley Sans','Source Han Sans SC','Noto Sans SC','Microsoft YaHei',sans-serif", fontSize: 12,
       defaultColor: '#333333', defaultBackground: 16777215, defaultBackgroundAlpha: 0.8,
       defaultBorderColor: 13421772, defaultBorderAlpha: 0.4, defaultFontWeight: 'normal',
       activeColor: '#000000', activeBackground: 16766720, activeBackgroundAlpha: 0.8,
@@ -694,26 +751,236 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
     }
   } as unknown as StyleData
 
+  // ── 内置模板预设：电影 ──
+  const MOVIE_DIALOG: StyleData = {
+    version: '1.3',
+    box: {
+      height: 220,
+      leftMargin: 0,
+      rightMargin: 0,
+      bottomMargin: 40,
+      backgroundColor: 0x0a0a14,
+      backgroundAlpha: 0.9,
+      borderColor: 0x555577,
+      borderAlpha: 0.4,
+      borderWidth: 1,
+      borderRadius: 4,
+      shadowBlur: 30,
+      shadowColor: 0,
+      shadowAlpha: 0.3,
+      shadowOffsetX: 0,
+      shadowOffsetY: 4,
+      showAvatar: false
+    },
+    nameBox: {
+      x: 760,
+      y: 6,
+      width: 240,
+      height: 42,
+      backgroundColor: 0x333355,
+      backgroundAlpha: 0.6,
+      borderColor: 0x666688,
+      borderAlpha: 0.3,
+      borderWidth: 0,
+      borderRadius: 4
+    },
+    avatar: {
+      x: 0,
+      y: 0,
+      width: 1,
+      height: 1,
+      borderRadius: 0,
+      borderWidth: 0,
+      borderAlpha: 0
+    },
+    dialogueText: {
+      fontFamily: "'Smiley Sans','Source Han Sans SC','Noto Sans SC','Microsoft YaHei',sans-serif",
+      fontSize: 28,
+      color: '#f0f0f8',
+      x: 40,
+      y: 60,
+      width: 1840,
+      height: 140,
+      lineHeight: 44,
+      letterSpacing: 1.5,
+      strokeColor: '#000000',
+      strokeAlpha: 0,
+      strokeWidth: 0,
+      textAlign: 'center',
+      fontWeight: 'normal',
+      fontStyle: 'normal'
+    },
+    nameText: {
+      fontFamily: "'Smiley Sans','Source Han Sans SC','Noto Sans SC','Microsoft YaHei',sans-serif",
+      fontSize: 18,
+      color: '#e0d0a0',
+      letterSpacing: 4,
+      strokeColor: '#000000',
+      strokeAlpha: 0.3,
+      strokeWidth: 0.5,
+      x: 0,
+      textAlign: 'left',
+      fontWeight: 'normal',
+      fontStyle: 'normal'
+    },
+    autoProgress: {
+      size: 36,
+      color: 0x7c6ff0,
+      width: 3,
+      x: 34,
+      y: 34
+    }
+  } as unknown as StyleData
+
+  const MOVIE_CHOICE: StyleData = {
+    ...DEFAULT_CHOICE,
+    panel: { horizontalAlign: 'center', verticalAlign: 'center', marginX: 0, marginY: 0 },
+    text: { ...DEFAULT_CHOICE.text, textAlign: 'center' as const }
+  } as unknown as StyleData
+
+  const MOVIE_CONTROLBAR: StyleData = DEFAULT_CONTROLBAR
+
+  // ── 内置模板预设：透明 ──
+  const TRANSPARENT_DIALOG: StyleData = {
+    version: '1.3',
+    box: {
+      height: 220,
+      leftMargin: 40,
+      rightMargin: 40,
+      bottomMargin: 30,
+      backgroundColor: 0x222222,
+      backgroundAlpha: 0.1,
+      borderColor: 0,
+      borderAlpha: 0,
+      borderWidth: 0,
+      borderRadius: 0,
+      shadowBlur: 0,
+      shadowColor: 0,
+      shadowAlpha: 0,
+      shadowOffsetX: 0,
+      shadowOffsetY: 0
+    },
+    nameBox: {
+      x: 16,
+      y: 6,
+      width: 180,
+      height: 36,
+      backgroundColor: 0x222222,
+      backgroundAlpha: 0.15,
+      borderColor: 0,
+      borderAlpha: 0,
+      borderWidth: 0,
+      borderRadius: 0
+    },
+    avatar: {
+      x: 16,
+      y: 0,
+      width: 100,
+      height: 100,
+      borderRadius: 0,
+      borderWidth: 0,
+      borderAlpha: 0
+    },
+    dialogueText: {
+      fontFamily: "'Smiley Sans','Source Han Sans SC','Noto Sans SC','Microsoft YaHei',sans-serif",
+      fontSize: 26,
+      color: '#f0f0f0',
+      x: 12,
+      y: 8,
+      width: 1816,
+      height: 196,
+      lineHeight: 40,
+      letterSpacing: 1,
+      strokeColor: '#000000',
+      strokeAlpha: 1,
+      strokeWidth: 2,
+      textAlign: 'left',
+      fontWeight: 'normal',
+      fontStyle: 'normal'
+    },
+    nameText: {
+      fontFamily: "'Smiley Sans','Source Han Sans SC','Noto Sans SC','Microsoft YaHei',sans-serif",
+      fontSize: 18,
+      color: '#ffffff',
+      letterSpacing: 2,
+      strokeColor: '#000000',
+      strokeAlpha: 1,
+      strokeWidth: 1.5,
+      x: 10,
+      textAlign: 'left',
+      fontWeight: 'bold',
+      fontStyle: 'normal'
+    },
+    autoProgress: {
+      size: 36,
+      color: 0x7c6ff0,
+      width: 3,
+      x: 34,
+      y: 34
+    }
+  } as unknown as StyleData
+
+  const TRANSPARENT_CHOICE: StyleData = {
+    ...DEFAULT_CHOICE,
+    panel: { horizontalAlign: 'center', verticalAlign: 'center', marginX: 0, marginY: 0 },
+    button: { ...DEFAULT_CHOICE.button, borderWidth: 0, backgroundAlpha: 0.12 },
+    buttonDisabled: { ...DEFAULT_CHOICE.buttonDisabled, borderWidth: 0, backgroundAlpha: 0.06 },
+    text: { ...DEFAULT_CHOICE.text, strokeWidth: 2, strokeAlpha: 1, strokeColor: '#000000' }
+  } as unknown as StyleData
+
+  const TRANSPARENT_CONTROLBAR: StyleData = {
+    ...DEFAULT_CONTROLBAR,
+    bar: { ...DEFAULT_CONTROLBAR.bar, backgroundAlpha: 0.08 }
+  } as unknown as StyleData
+
   // Load styles on mount
   useEffect(() => {
     if (!window.electronAPI) return
     ;(async () => {
-      const resolvedAppPath = await window.electronAPI.getAppPath()
-      _setAppPath(resolvedAppPath)
-      const sd = `${resolvedAppPath}/assets/template/schemes`
-      setSchemesDir(sd)
-      // 加载/迁移方案索引
-      const idx = await loadOrMigrateSchemes(resolvedAppPath)
-      setSchemes(idx.schemes)
-      setActiveSchemeId(idx.activeScheme)
-      // 加载当前方案样式
-      const styles = await loadSchemeStyles(resolvedAppPath, idx.activeScheme)
-      setDialogStyle(styles.dialog)
-      setChoiceStyle(styles.choice)
-      setControlbarStyle(styles.controlbar)
-      setIsSchemeLoaded(true)
-      // 同步到引擎文件
-      await syncEngineFiles(resolvedAppPath, styles.dialog, styles.choice, styles.controlbar)
+      try {
+        const resolvedAppPath = await window.electronAPI.getAppPath()
+        _setAppPath(resolvedAppPath)
+        const sd = `${resolvedAppPath}/assets/template/schemes`
+        setSchemesDir(sd)
+        // 加载/迁移方案索引
+        let idx = await loadOrMigrateSchemes(resolvedAppPath)
+        if (!idx || !idx.schemes) {
+          console.error('[TemplateSettings] schemes index invalid:', idx)
+          return
+        }
+        // 确保内置方案（movie/transparent）在索引中存在
+        const builtInDefaults: Array<{ id: string; name: string; dialog: StyleData; choice: StyleData; controlbar: StyleData }> = [
+          { id: 'movie', name: '电影', dialog: MOVIE_DIALOG, choice: MOVIE_CHOICE, controlbar: MOVIE_CONTROLBAR },
+          { id: 'transparent', name: '透明', dialog: TRANSPARENT_DIALOG, choice: TRANSPARENT_CHOICE, controlbar: TRANSPARENT_CONTROLBAR }
+        ]
+        let schemesChanged = false
+        for (const def of builtInDefaults) {
+          if (!idx.schemes.some((s) => s.id === def.id)) {
+            idx.schemes.push({ id: def.id, name: def.name })
+            schemesChanged = true
+            // 写入方案文件
+            const dir = `${sd}/${def.id}`
+            await window.electronAPI.writeFile(`${dir}/dialog.json`, JSON.stringify(def.dialog, null, 2))
+            await window.electronAPI.writeFile(`${dir}/choice.json`, JSON.stringify(def.choice, null, 2))
+            await window.electronAPI.writeFile(`${dir}/controlbar.json`, JSON.stringify(def.controlbar, null, 2))
+          }
+        }
+        if (schemesChanged) {
+          await window.electronAPI.writeFile(`${sd}/${SCHEMES_JSON}`, JSON.stringify(idx, null, 2))
+        }
+        setSchemes(idx.schemes)
+        setActiveSchemeId(idx.activeScheme)
+        // 加载当前方案样式
+        const styles = await loadSchemeStyles(resolvedAppPath, idx.activeScheme)
+        setDialogStyle(styles.dialog)
+        setChoiceStyle(styles.choice)
+        setControlbarStyle(styles.controlbar)
+        setIsSchemeLoaded(true)
+        // 同步到引擎文件
+        await syncEngineFiles(resolvedAppPath, styles.dialog, styles.choice, styles.controlbar)
+      } catch (err) {
+        console.error('[TemplateSettings] 初始化失败:', err)
+      }
     })()
   }, [])
 
@@ -822,14 +1089,14 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
         shadowColor: (box.shadowColor as number) ?? 0,
         shadowAlpha: (box.shadowAlpha as number) ?? 0.35,
         shadowOffsetX: (box.shadowOffsetX as number) ?? 0,
-        shadowOffsetY: (box.shadowOffsetY as number) ?? 6
+        shadowOffsetY: (box.shadowOffsetY as number) ?? 6,
+        showAvatar: (box.showAvatar as boolean) ?? true
       },
       nameBox: {
+        x: (nameBox.x as number) ?? 24,
+        y: (nameBox.y as number) ?? 6,
         width: (nameBox.width as number) ?? 160,
         height: (nameBox.height as number) ?? 40,
-        leftMargin: (nameBox.leftMargin as number) ?? 24,
-        rightMargin: (nameBox.rightMargin as number) ?? 24,
-        bottomMargin: (nameBox.bottomMargin as number) ?? 8,
         backgroundColor: (nameBox.backgroundColor as number) ?? 0x1a1a3a,
         backgroundAlpha: (nameBox.backgroundAlpha as number) ?? 0.9,
         borderColor: (nameBox.borderColor as number) ?? 0x6363b3,
@@ -838,12 +1105,10 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
         borderRadius: (nameBox.borderRadius as number) ?? 6
       },
       avatar: {
+        x: (avatar.x as number) ?? 16,
+        y: (avatar.y as number) ?? 0,
         width: (avatar.width as number) ?? 130,
         height: (avatar.height as number) ?? 130,
-        leftMargin: (avatar.leftMargin as number) ?? 16,
-        rightMargin: (avatar.rightMargin as number) ?? 14,
-        topMargin: (avatar.topMargin as number) ?? 0,
-        bottomMargin: (avatar.bottomMargin as number) ?? 12,
         borderRadius: (avatar.borderRadius as number) ?? undefined,
         borderColor: (avatar.borderColor as number) ?? undefined,
         borderWidth: (avatar.borderWidth as number) ?? undefined,
@@ -853,10 +1118,10 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
         fontFamily: (dialogueText.fontFamily as string) ?? 'Microsoft YaHei, SimHei, sans-serif',
         fontSize: (dialogueText.fontSize as number) ?? 26,
         color: (dialogueText.color as string) ?? '#e8e8f0',
-        topMargin: (dialogueText.topMargin as number) ?? 8,
-        leftMargin: (dialogueText.leftMargin as number) ?? 12,
-        rightMargin: (dialogueText.rightMargin as number) ?? 12,
-        bottomMargin: (dialogueText.bottomMargin as number) ?? 16,
+        x: (dialogueText.x as number) ?? 12,
+        y: (dialogueText.y as number) ?? 54,
+        width: (dialogueText.width as number) ?? 1736,
+        height: (dialogueText.height as number) ?? 150,
         lineHeight: (dialogueText.lineHeight as number) ?? 40,
         letterSpacing: (dialogueText.letterSpacing as number) ?? 1,
         strokeColor: (dialogueText.strokeColor as string) ?? '#000000',
@@ -874,9 +1139,9 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
         strokeColor: (nameText.strokeColor as string) ?? '#000000',
         strokeAlpha: (nameText.strokeAlpha as number) ?? 0,
         strokeWidth: (nameText.strokeWidth as number) ?? 0,
-        topMargin: (nameText.topMargin as number) ?? undefined,
-        leftMargin: (nameText.leftMargin as number) ?? undefined,
-        bottomMargin: (nameText.bottomMargin as number) ?? undefined,
+        x: (nameText.x as number) ?? 10,
+        y: (nameText.y as number) ?? undefined,
+        textAlign: (nameText.textAlign as 'left' | 'center' | 'right') ?? undefined,
         fontWeight: (nameText.fontWeight as string) ?? undefined,
         fontStyle: (nameText.fontStyle as string) ?? undefined
       },
@@ -886,7 +1151,8 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
           size: (ap.size as number) ?? 36,
           color: (ap.color as number) ?? 0x7c6ff0,
           width: (ap.width as number) ?? 3,
-          rightMargin: (ap.rightMargin as number) ?? 16,
+          x: (ap.x as number) ?? 34,
+          y: (ap.y as number) ?? 34,
         }
       })(),
     }
@@ -1093,22 +1359,37 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
     }
   }, [activeSchemeId, schemesDir, schemes, showToast])
 
-  /** 重置当前方案为深色默认样式 */
+  /** 获取方案对应的默认样式 */
+  const getSchemeDefaults = useCallback((schemeId: string) => {
+    switch (schemeId) {
+      case 'light':
+        return { dialog: DEFAULT_LIGHT_DIALOG as StyleData, choice: DEFAULT_LIGHT_CHOICE as StyleData, controlbar: DEFAULT_LIGHT_CONTROLBAR as StyleData }
+      case 'movie':
+        return { dialog: MOVIE_DIALOG as StyleData, choice: MOVIE_CHOICE as StyleData, controlbar: MOVIE_CONTROLBAR as StyleData }
+      case 'transparent':
+        return { dialog: TRANSPARENT_DIALOG as StyleData, choice: TRANSPARENT_CHOICE as StyleData, controlbar: TRANSPARENT_CONTROLBAR as StyleData }
+      default:
+        return { dialog: DEFAULT_DIALOG as StyleData, choice: DEFAULT_CHOICE as StyleData, controlbar: DEFAULT_CONTROLBAR as StyleData }
+    }
+  }, [])
+
+  /** 重置当前方案为默认样式 */
   const handleReset = useCallback(async () => {
     if (!confirm('确定要将当前方案重置为默认样式吗？此操作不可撤销。')) return
     if (!window.electronAPI || !schemesDir) return
     try {
       const appPath = await window.electronAPI.getAppPath()
-      setDialogStyle(DEFAULT_DIALOG as StyleData)
-      setChoiceStyle(DEFAULT_CHOICE as StyleData)
-      setControlbarStyle(DEFAULT_CONTROLBAR as StyleData)
+      const defaults = getSchemeDefaults(activeSchemeId)
+      setDialogStyle(defaults.dialog)
+      setChoiceStyle(defaults.choice)
+      setControlbarStyle(defaults.controlbar)
       // 保存到当前方案
-      await saveToScheme(appPath, activeSchemeId, DEFAULT_DIALOG as StyleData, DEFAULT_CHOICE as StyleData, DEFAULT_CONTROLBAR as StyleData)
+      await saveToScheme(appPath, activeSchemeId, defaults.dialog, defaults.choice, defaults.controlbar)
       showToast('已重置为默认样式')
     } catch {
       showToast('重置失败')
     }
-  }, [activeSchemeId, schemesDir, showToast])
+  }, [activeSchemeId, schemesDir, showToast, getSchemeDefaults])
 
   /** 保存当前方案 */
   const handleSave = useCallback(async () => {
@@ -1154,10 +1435,12 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
     }
   }, [dialogStyle, choiceStyle, schemesDir, showToast])
 
+  const BUILTIN_SCHEMES = ['dark', 'light', 'movie', 'transparent']
+
   /** 删除自定义方案 */
   const handleDeleteScheme = useCallback(async (schemeId: string) => {
-    if (schemeId === 'dark' || schemeId === 'light') {
-      showToast('默认方案不可删除')
+    if (BUILTIN_SCHEMES.includes(schemeId)) {
+      showToast('内置方案不可删除')
       return
     }
     const schemeName = schemes.find((s) => s.id === schemeId)?.name ?? schemeId
@@ -1213,48 +1496,38 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
   const av = (d.avatar ?? {}) as Record<string, unknown>
   const dt = (d.dialogueText ?? {}) as Record<string, unknown>
   const nb = (d.nameBox ?? {}) as Record<string, unknown>
+  const nt = (d.nameText ?? {}) as Record<string, unknown>
+
+  // ---- 对齐方式（用于显示居中参考线） ----
+  const dtAlign = (dt.textAlign as string) ?? 'left'
+  const ntAlign = (nt.textAlign as string) ?? 'left'
 
   // ---- 对话框大小（像素值计算） ----
   const boxH = (box.height as number) ?? 200
   const boxLM = (box.leftMargin as number) ?? 60
   const boxRM = (box.rightMargin as number) ?? 60
   const boxBM = (box.bottomMargin as number) ?? 10
-
-  // ---- 姓名框 ----
-  const nbW = (nb.width as number) ?? 120
-  const nbH = (nb.height as number) ?? 36
-  const nbLM = (nb.leftMargin as number) ?? 20
-
-  // ---- 头像 ----
-  const avW = (av.width as number) ?? 64
-  const avH = (av.height as number) ?? 64
-  const avLM = (av.leftMargin as number) ?? 12
-  const avRM = (av.rightMargin as number) ?? 12
-  const avBM = (av.bottomMargin as number) ?? 12
-
-  /** 头像占据的水平总空间 = 头像宽度 + 左侧间距 + 右侧间距 */
-  const avatarTotalWidth = avW + avLM + avRM
-
-  /** 内容区域左侧额外偏移：带头像时由头像宽度决定，无头像时为零（与引擎 textLeftShift 逻辑一致） */
-  const contentPaddingLeft = showAvatarPreview ? avatarTotalWidth : 0
-
-  // 文本框位置（使用虚拟舞台坐标 1920×1080，与游戏引擎一致）
   const boxW = VIRTUAL_WIDTH - boxLM - boxRM
   const boxX = boxLM
   const boxY = VIRTUAL_HEIGHT - boxH - boxBM
 
-  // 对话文本在对话框内的垂直偏移（与 DialogBox.ts 一致）
-  const nameBoxBottom = 6 + (nb.height as number ?? 36)
-  const textAreaTopOffset = showNameBox ? nameBoxBottom + 0 : 8
-  const textAvailableHeight = boxH - textAreaTopOffset - (dt.bottomMargin as number ?? 8)
+  // ---- 姓名框（相对于 box 的 XY 坐标） ----
+  const nbX = boxX + (nb.x as number ?? 24)
+  const nbY = boxY + (nb.y as number ?? 6)
+  const nbW = (nb.width as number) ?? 120
+  const nbH = (nb.height as number) ?? 36
 
-  const dtLM = (dt.leftMargin as number) ?? 0
-  const dtRM = (dt.rightMargin as number) ?? 0
-  const dtBM = (dt.bottomMargin as number) ?? 8
-  const textX = boxX + contentPaddingLeft + dtLM
-  const textY = boxY + textAreaTopOffset
-  const textW = boxW - contentPaddingLeft - dtLM - dtRM
-  const textMaxH = Math.max(4, textAvailableHeight)
+  // ---- 头像（相对于 box 的 XY 坐标） ----
+  const avX = boxX + (av.x as number ?? 16)
+  const avY = boxY + (av.y as number ?? 0)
+  const avW = (av.width as number) ?? 64
+  const avH = (av.height as number) ?? 64
+
+  // ---- 对话文本（相对于 box 的 XY 坐标和宽高） ----
+  const dtX = boxX + (dt.x as number ?? 12)
+  const dtY = boxY + (dt.y as number ?? 8)
+  const dtW = (dt.width as number) ?? 1700
+  const dtH = (dt.height as number) ?? 150
 
   // ---------- render property controls ----------
 
@@ -1266,7 +1539,7 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
 
     const labelStyle: React.CSSProperties = {
       fontSize: 13,
-      color: '#a0a0c0',
+      color: 'var(--text-secondary)',
       marginBottom: 4,
       minWidth: 100
     }
@@ -1290,7 +1563,7 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
               step={def.step ?? 1}
               value={numVal}
               onChange={(e) => onChange(parseFloat(e.target.value))}
-              style={{ flex: 1, accentColor: '#7c6ff0' }}
+              style={{ flex: 1, accentColor: 'var(--accent)' }}
             />
             <input
               type="number"
@@ -1302,9 +1575,9 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
               style={{
                 width: 64,
                 padding: '2px 4px',
-                background: '#2a2a3e',
-                border: '1px solid #444',
-                color: '#cdd6f4',
+                background: 'var(--bg)',
+                border: '1px solid var(--border)',
+                color: 'var(--text)',
                 borderRadius: 4,
                 fontSize: 13,
                 textAlign: 'center'
@@ -1324,7 +1597,7 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
               onChange={(e) => onChange(hexToInt(e.target.value))}
               style={{ width: 36, height: 28, padding: 0, border: 'none', cursor: 'pointer', background: 'transparent' }}
             />
-            <span style={{ fontSize: 12, color: '#888', fontFamily: 'monospace' }}>{hex}</span>
+            <span style={{ fontSize: 12, color: 'var(--text-tertiary)', fontFamily: 'monospace' }}>{hex}</span>
           </div>
         )
       }
@@ -1349,12 +1622,12 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
               style={{
                 width: 80,
                 padding: '2px 4px',
-                background: '#2a2a3e',
-                border: '1px solid #444',
-                color: '#cdd6f4',
-                borderRadius: 4,
-                fontSize: 13,
-                fontFamily: 'monospace'
+                    background: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text)',
+                    borderRadius: 4,
+                    fontSize: 13,
+                    fontFamily: 'monospace'
               }}
             />
           </div>
@@ -1372,9 +1645,9 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
               style={{
                 flex: 1,
                 padding: '3px 6px',
-                background: '#2a2a3e',
-                border: '1px solid #444',
-                color: '#cdd6f4',
+                background: 'var(--bg)',
+                border: '1px solid var(--border)',
+                color: 'var(--text)',
                 borderRadius: 4,
                 fontSize: 13
               }}
@@ -1385,26 +1658,52 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
       case 'select': {
         const toOpt = (o: string | { label: string; value: string }): { label: string; value: string } =>
           typeof o === 'string' ? { label: o, value: o } : o
-        const opts = (def.options ?? []).map(toOpt)
+        let opts = (def.options ?? []).map(toOpt)
+        // 如果是字体选择（fontFamily），合并系统字体
+        if (key === 'fontFamily' && systemFonts.length > 0) {
+          opts = [
+            ...opts,
+            { label: '────────── 系统字体 ──────────', value: '__DIVIDER__' },
+            ...systemFonts.map((font) => ({
+              label: font,
+              value: font.includes(' ') ? `'${font}',sans-serif` : `${font},sans-serif`
+            }))
+          ]
+        }
         const cur = typeof value === 'string' ? value : (opts[0]?.value ?? '')
         return (
           <div key={key} style={rowStyle}>
             <span style={labelStyle}>{def.label}</span>
             <select
               value={cur}
-              onChange={(e) => onChange(e.target.value)}
+              onChange={(e) => {
+                if (e.target.value !== '__DIVIDER__') onChange(e.target.value)
+              }}
               style={{
                 flex: 1,
                 padding: '3px 6px',
-                background: '#2a2a3e',
-                border: '1px solid #444',
-                color: '#cdd6f4',
+                background: 'var(--bg)',
+                border: '1px solid var(--border)',
+                color: 'var(--text)',
                 borderRadius: 4,
                 fontSize: 13
               }}
             >
               {opts.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
+                <option
+                  key={o.value}
+                  value={o.value}
+                  disabled={o.value === '__DIVIDER__'}
+                  style={o.value === '__DIVIDER__' ? {
+                    borderTop: '1px solid var(--border)',
+                    color: 'var(--text-tertiary)',
+                    fontWeight: 'bold',
+                    textAlign: 'center',
+                    fontSize: 11
+                  } : undefined}
+                >
+                  {o.label}
+                </option>
               ))}
             </select>
           </div>
@@ -1425,9 +1724,9 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
           padding: '6px 12px 6px 28px',
           cursor: 'pointer',
           fontSize: 13,
-          color: isActive ? '#fff' : '#888',
-          background: isActive ? 'rgba(124,111,240,0.2)' : 'transparent',
-          borderLeft: isActive ? '3px solid #7c6ff0' : '3px solid transparent',
+          color: isActive ? 'var(--text)' : 'var(--text-tertiary)',
+          background: isActive ? 'var(--accent-subtle)' : 'transparent',
+          borderLeft: isActive ? '3px solid var(--accent)' : '3px solid transparent',
           transition: 'all 0.15s',
           borderRadius: '0 4px 4px 0',
           userSelect: 'none'
@@ -1450,13 +1749,13 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
     <label
       style={{
         display: 'flex', alignItems: 'center', gap: 4, cursor: enabled ? 'pointer' : 'not-allowed',
-        color: value ? '#cdd6f4' : '#555', opacity: enabled ? 1 : 0.4, userSelect: 'none'
+        color: value ? 'var(--text)' : 'var(--text-tertiary)', opacity: enabled ? 1 : 0.4, userSelect: 'none'
       }}
       onClick={enabled ? () => onChange(!value) : undefined}
     >
       <div style={{
         width: 32, height: 16, borderRadius: 8, position: 'relative',
-        background: value ? '#7c6ff0' : '#3a3a5a', transition: 'background 0.2s'
+        background: value ? 'var(--accent)' : 'var(--panel-bg)', transition: 'background 0.2s'
       }}>
         <div style={{
           position: 'absolute', top: 2, left: value ? 18 : 2,
@@ -1469,7 +1768,7 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
   )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#1e1e2e' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg)' }}>
       {/* Header */}
       <div
         style={{
@@ -1477,12 +1776,12 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '8px 16px',
-          background: '#252540',
-          borderBottom: '1px solid #333',
+          background: 'var(--panel-bg)',
+          borderBottom: '1px solid var(--border)',
           flexShrink: 0
         }}
       >
-        <div style={{ fontSize: 16, fontWeight: 600, color: '#cdd6f4' }}>模板设置</div>
+        <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)' }}>模板设置</div>
         {/* 方案选择器 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <select
@@ -1490,9 +1789,9 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
             onChange={(e) => handleSwitchScheme(e.target.value)}
             style={{
               padding: '5px 8px',
-              background: '#2a2a42',
-              border: '1px solid #444',
-              color: '#cdd6f4',
+              background: 'var(--bg)',
+              border: '1px solid var(--border)',
+              color: 'var(--text)',
               borderRadius: 6,
               fontSize: 13,
               cursor: 'pointer',
@@ -1517,9 +1816,9 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
               style={{
                 width: 90,
                 padding: '4px 6px',
-                background: '#2a2a3e',
-                border: '1px solid #7c6ff0',
-                color: '#cdd6f4',
+                background: 'var(--bg)',
+                border: '1px solid var(--accent)',
+                color: 'var(--text)',
                 borderRadius: 4,
                 fontSize: 13,
                 outline: 'none'
@@ -1537,8 +1836,8 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
               style={{
                 padding: '4px 8px',
                 background: 'transparent',
-                border: '1px solid #444',
-                color: '#888',
+                border: '1px solid var(--border)',
+                color: 'var(--text-tertiary)',
                 borderRadius: 4,
                 cursor: 'pointer',
                 fontSize: 12
@@ -1546,15 +1845,15 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
             >✏</button>
           )}
           {/* 删除方案（仅自定义方案） */}
-          {activeSchemeId !== 'dark' && activeSchemeId !== 'light' && (
+          {!BUILTIN_SCHEMES.includes(activeSchemeId) && (
             <button
               onClick={() => handleDeleteScheme(activeSchemeId)}
               title="删除方案"
               style={{
                 padding: '4px 8px',
                 background: 'transparent',
-                border: '1px solid #844',
-                color: '#c66',
+                border: '1px solid var(--border)',
+                color: 'var(--text-tertiary)',
                 borderRadius: 4,
                 cursor: 'pointer',
                 fontSize: 12
@@ -1567,9 +1866,9 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
             onClick={handleSaveAs}
             style={{
               padding: '6px 12px',
-              background: '#2a3a4a',
-              border: '1px solid #457',
-              color: '#8cf',
+              background: 'var(--panel-bg)',
+              border: '1px solid var(--border)',
+              color: 'var(--text)',
               borderRadius: 6,
               cursor: 'pointer',
               fontSize: 12
@@ -1581,9 +1880,9 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
             onClick={handleReset}
             style={{
               padding: '6px 12px',
-              background: '#5a3a3a',
-              border: '1px solid #855',
-              color: '#f4cdcd',
+              background: 'var(--panel-bg)',
+              border: '1px solid var(--border)',
+              color: 'var(--text)',
               borderRadius: 6,
               cursor: 'pointer',
               fontSize: 12
@@ -1596,9 +1895,9 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
             disabled={saving}
             style={{
               padding: '6px 16px',
-              background: saving ? '#555' : '#7c6ff0',
+              background: saving ? 'var(--border)' : 'var(--accent)',
               border: 'none',
-              color: '#fff',
+              color: 'var(--text)',
               borderRadius: 6,
               cursor: saving ? 'not-allowed' : 'pointer',
               fontSize: 13,
@@ -1611,9 +1910,9 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
             onClick={onBack}
             style={{
               padding: '6px 16px',
-              background: '#3a3a5a',
-              border: '1px solid #555',
-              color: '#cdd6f4',
+              background: 'var(--panel-bg)',
+              border: '1px solid var(--border)',
+              color: 'var(--text)',
               borderRadius: 6,
               cursor: 'pointer',
               fontSize: 13
@@ -1631,17 +1930,17 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
           style={{
             width: 200,
             flexShrink: 0,
-            background: '#1a1a30',
-            borderRight: '1px solid #333',
+            background: 'var(--bg)',
+            borderRight: '1px solid var(--border)',
             overflowY: 'auto',
             padding: '8px 0'
           }}
         >
-          <div style={{ padding: '8px 12px', fontSize: 12, color: '#667', fontWeight: 600, letterSpacing: 1 }}>文本框</div>
+          <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--text-tertiary)', fontWeight: 600, letterSpacing: 1 }}>文本框</div>
           {SECTIONS.filter((s) => s.category === 'dialog').map((s) => sidebarItem(s.id, s.label, s.category))}
-          <div style={{ padding: '12px 12px 8px', fontSize: 12, color: '#667', fontWeight: 600, letterSpacing: 1 }}>分支选项</div>
+          <div style={{ padding: '12px 12px 8px', fontSize: 12, color: 'var(--text-tertiary)', fontWeight: 600, letterSpacing: 1 }}>分支选项</div>
           {SECTIONS.filter((s) => s.category === 'choice').map((s) => sidebarItem(s.id, s.label, s.category))}
-          <div style={{ padding: '12px 12px 8px', fontSize: 12, color: '#667', fontWeight: 600, letterSpacing: 1 }}>菜单内按钮</div>
+          <div style={{ padding: '12px 12px 8px', fontSize: 12, color: 'var(--text-tertiary)', fontWeight: 600, letterSpacing: 1 }}>菜单内按钮</div>
           {SECTIONS.filter((s) => s.category === 'controlbar').map((s) => sidebarItem(s.id, s.label, s.category))}
         </div>
 
@@ -1650,13 +1949,13 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
           style={{
             width: 320,
             flexShrink: 0,
-            background: '#22223a',
-            borderRight: '1px solid #333',
+            background: 'var(--panel-bg)',
+            borderRight: '1px solid var(--border)',
             overflowY: 'auto',
             padding: 16
           }}
         >
-          <div style={{ fontSize: 14, fontWeight: 600, color: '#cdd6f4', marginBottom: 16 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 16 }}>
             {activeSectionDef.label}
           </div>
           {activeSectionDef.properties.map((p) =>
@@ -1664,10 +1963,11 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
           )}
         </div>
 
-        {/* Live Preview */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#1a1a2e', overflow: 'hidden' }}>
-          <div style={{ padding: '8px 16px', fontSize: 12, color: '#667', borderBottom: '1px solid #333' }}>
-            实时预览
+        {/* 手动调整区域 */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg)', overflow: 'hidden' }}>
+          <div style={{ padding: '8px 16px', fontSize: 12, color: 'var(--text-tertiary)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ color: 'var(--accent)', fontWeight: 600 }}>⛭</span>
+            手动调整区域
           </div>
           <div
             ref={previewContainerRef}
@@ -1690,7 +1990,7 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
                 height: VIRTUAL_HEIGHT,
                 transform: `translate(-50%, -50%) scale(${previewScale})`,
                 transformOrigin: 'center',
-                background: 'linear-gradient(135deg, #2a1a3a 0%, #1a2a3a 100%)'
+                background: 'var(--bg)'
               }}
             >
             {/* 方案加载中提示 */}
@@ -1698,14 +1998,14 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
               <div style={{
                 position: 'absolute', left: 0, top: 0, width: VIRTUAL_WIDTH, height: VIRTUAL_HEIGHT,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#667', fontSize: 16, fontFamily: 'sans-serif',
-                background: 'linear-gradient(135deg, #2a1a3a 0%, #1a2a3a 100%)',
+                color: 'var(--text-tertiary)', fontSize: 16, fontFamily: 'sans-serif',
+                background: 'var(--bg)',
                 zIndex: 100,
               }}>
                 正在加载方案&#8230;
               </div>
             )}
-            {/* PixiJS 实时预览 - 使用 DialogBox / ChoicePanel 引擎组件渲染，与演出区域完全一致 */}
+            {/* PixiJS 引擎渲染 - 使用 DialogBox / ChoicePanel 组件实时渲染，拖拽手柄覆盖在上方进行调整 */}
             <div ref={pixiCanvasMountRef} style={{ position: 'absolute', left: 0, top: 0, width: VIRTUAL_WIDTH, height: VIRTUAL_HEIGHT, pointerEvents: 'none' }} />
 
                 {/* ---- 拖拽调整手柄 ---- */}
@@ -1719,17 +2019,17 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
                     height: boxH,
                     cursor: 'ew-resize',
                     zIndex: 10,
-                    background: 'rgba(124,111,240,0.3)',
+                    background: 'var(--accent-subtle)',
                     borderRadius: 2,
                     transition: 'background 0.15s',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontSize: 8,
-                    color: 'rgba(124,111,240,0.6)'
+                    color: 'var(--accent)'
                   }}				  
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(124,111,240,0.7)' }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(124,111,240,0.3)' }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--accent)' }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-subtle)' }}
                   onMouseDown={(e) => {
                     e.preventDefault()
                     e.stopPropagation()
@@ -1741,7 +2041,9 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
                       groupKey: 'box'
                     }
                   }}
-                />
+                >
+                  <span style={{ fontSize: 8, color: 'var(--accent)', pointerEvents: 'none', writingMode: 'vertical-rl', textOrientation: 'mixed' }}>{boxLM}</span>
+                </div>
                 {/* 对话框右边缘：调整右侧边距 */}
                 <div
                   style={{
@@ -1752,12 +2054,15 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
                     height: boxH,
                     cursor: 'ew-resize',
                     zIndex: 10,
-                    background: 'rgba(124,111,240,0.3)',
+                    background: 'var(--accent-subtle)',
                     borderRadius: 2,
-                    transition: 'background 0.15s'
+                    transition: 'background 0.15s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
                   }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(124,111,240,0.7)' }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(124,111,240,0.3)' }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--accent)' }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-subtle)' }}
                   onMouseDown={(e) => {
                     e.preventDefault()
                     e.stopPropagation()
@@ -1769,7 +2074,9 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
                       groupKey: 'box'
                     }
                   }}
-                />
+                >
+                  <span style={{ fontSize: 8, color: 'var(--accent)', pointerEvents: 'none', writingMode: 'vertical-rl', textOrientation: 'mixed' }}>{boxRM}</span>
+                </div>
                 {/* 对话框上边缘：调整高度 */}
                 <div
                   style={{
@@ -1830,13 +2137,78 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
                   }}
                 />
 
+                {/* 头像左边缘：调整 X 位置 */}
+                {showAvatarPreview && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: avX - 4,
+                      top: avY,
+                      width: 8,
+                      height: avH,
+                      cursor: 'ew-resize',
+                      zIndex: 10,
+                      background: 'rgba(0,200,120,0.3)',
+                      borderRadius: 2,
+                      transition: 'background 0.15s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,200,120,0.7)' }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,200,120,0.3)' }}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      document.body.style.cursor = 'ew-resize'
+                      dragRef.current = {
+                        active: true, type: 'avatar-x',
+                        startX: e.clientX, startY: e.clientY,
+                        startVal1: (av.x as number) ?? 16, startVal2: 0,
+                        groupKey: 'avatar'
+                      }
+                    }}
+                  >
+                    <span style={{ fontSize: 8, color: 'rgba(0,200,120,0.7)', pointerEvents: 'none', writingMode: 'vertical-rl', textOrientation: 'mixed' }}>{(av.x as number) ?? 0}</span>
+                  </div>
+                )}
+                {/* 头像上边缘：调整 Y 位置 */}
+                {showAvatarPreview && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: avX,
+                      top: avY - 4,
+                      width: avW,
+                      height: 8,
+                      cursor: 'ns-resize',
+                      zIndex: 10,
+                      background: 'rgba(0,200,120,0.3)',
+                      borderRadius: 2,
+                      transition: 'background 0.15s'
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,200,120,0.7)' }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,200,120,0.3)' }}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      document.body.style.cursor = 'ns-resize'
+                      dragRef.current = {
+                        active: true, type: 'avatar-y',
+                        startX: e.clientX, startY: e.clientY,
+                        startVal1: (av.y as number) ?? 0, startVal2: 0,
+                        groupKey: 'avatar'
+                      }
+                    }}
+                  />
+                )}
                 {/* 头像右边缘：调整宽度 */}
                 {showAvatarPreview && (
                   <div
                     style={{
                       position: 'absolute',
-                      left: boxX + avLM + avW - 4,
-                      top: boxY,
+                      left: avX + avW - 4,
+                      top: avY,
                       width: 8,
                       height: avH,
                       cursor: 'ew-resize',
@@ -1865,8 +2237,8 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
                   <div
                     style={{
                       position: 'absolute',
-                      left: boxX + avLM,
-                      top: boxY + avH - 4,
+                      left: avX,
+                      top: avY + avH - 4,
                       width: avW,
                       height: 8,
                       cursor: 'ns-resize',
@@ -1890,78 +2262,79 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
                     }}
                   />
                 )}
-                {/* 头像右侧间距：调整 rightMargin */}
-                {showAvatarPreview && (
+
+                {/* 姓名框左边缘：调整 X 位置 */}
+                {showNameBox && (
                   <div
                     style={{
                       position: 'absolute',
-                      left: boxX + avLM + avW,
-                      top: boxY + avH / 2 - 12,
-                      width: avRM > 0 ? avRM : 12,
-                      height: 24,
+                      left: nbX - 4,
+                      top: nbY,
+                      width: 8,
+                      height: nbH,
                       cursor: 'ew-resize',
                       zIndex: 10,
-                      background: 'rgba(0,200,120,0.15)',
+                      background: 'rgba(255,180,40,0.3)',
                       borderRadius: 2,
                       transition: 'background 0.15s',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 10,
-                      color: 'rgba(0,200,120,0.5)'
+                      justifyContent: 'center'
                     }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,200,120,0.5)' }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,200,120,0.15)' }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,180,40,0.7)' }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,180,40,0.3)' }}
                     onMouseDown={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
                       document.body.style.cursor = 'ew-resize'
                       dragRef.current = {
-                        active: true, type: 'avatar-right', startX: e.clientX, startY: e.clientY, startVal1: avRM, startVal2: 0, groupKey: 'avatar'
+                        active: true, type: 'namebox-x',
+                        startX: e.clientX, startY: e.clientY,
+                        startVal1: (nb.x as number) ?? 24, startVal2: 0,
+                        groupKey: 'nameBox'
                       }
                     }}
-                  >⇔</div>
+                  >
+                    <span style={{ fontSize: 8, color: 'rgba(255,180,40,0.7)', pointerEvents: 'none', writingMode: 'vertical-rl', textOrientation: 'mixed' }}>{(nb.x as number) ?? 0}</span>
+                  </div>
                 )}
-                {/* 头像底部间距：调整 bottomMargin */}
-                {showAvatarPreview && (
+                {/* 姓名框上边缘：调整 Y 位置 */}
+                {showNameBox && (
                   <div
                     style={{
                       position: 'absolute',
-                      left: boxX + avLM,
-                      top: boxY + avH,
-                      width: avW,
-                      height: avBM > 0 ? avBM : 12,
+                      left: nbX,
+                      top: nbY - 4,
+                      width: nbW,
+                      height: 8,
                       cursor: 'ns-resize',
                       zIndex: 10,
-                      background: 'rgba(0,200,120,0.15)',
+                      background: 'rgba(255,180,40,0.3)',
                       borderRadius: 2,
-                      transition: 'background 0.15s',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 10,
-                      color: 'rgba(0,200,120,0.5)'
+                      transition: 'background 0.15s'
                     }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,200,120,0.5)' }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,200,120,0.15)' }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,180,40,0.7)' }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,180,40,0.3)' }}
                     onMouseDown={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
                       document.body.style.cursor = 'ns-resize'
                       dragRef.current = {
-                        active: true, type: 'avatar-bottom', startX: e.clientX, startY: e.clientY, startVal1: avBM, startVal2: 0, groupKey: 'avatar'
+                        active: true, type: 'namebox-y',
+                        startX: e.clientX, startY: e.clientY,
+                        startVal1: (nb.y as number) ?? 6, startVal2: 0,
+                        groupKey: 'nameBox'
                       }
                     }}
-                  >⇕</div>
+                  />
                 )}
-
                 {/* 姓名框右边缘：调整宽度 */}
                 {showNameBox && (
                   <div
                     style={{
                       position: 'absolute',
-                      left: boxX + contentPaddingLeft + nbLM + nbW - 4,
-                      top: boxY + 6,
+                      left: nbX + nbW - 4,
+                      top: nbY,
                       width: 8,
                       height: nbH,
                       cursor: 'ew-resize',
@@ -1990,8 +2363,8 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
                   <div
                     style={{
                       position: 'absolute',
-                      left: boxX + contentPaddingLeft + nbLM,
-                      top: boxY + 6 + nbH - 4,
+                      left: nbX,
+                      top: nbY + nbH - 4,
                       width: nbW,
                       height: 8,
                       cursor: 'ns-resize',
@@ -2016,20 +2389,64 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
                   />
                 )}
 
-                {/* 对话文本左边缘：调整左侧边距 */}
+                {/* 姓名框居中参考线：姓名文本居中对齐时显示，可左右拖动调整姓名框位置 */}
+                {showNameBox && ntAlign === 'center' && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: (nbX + nbW / 2) - 1,
+                      top: nbY,
+                      width: 2,
+                      height: nbH,
+                      cursor: 'ew-resize',
+                      zIndex: 11,
+                      background: 'rgba(255,180,40,0.4)',
+                      boxShadow: '0 0 4px rgba(255,180,40,0.3)',
+                      transition: 'background 0.15s'
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,180,40,0.8)' }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,180,40,0.4)' }}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      document.body.style.cursor = 'ew-resize'
+                      dragRef.current = {
+                        active: true, type: 'name-center-line',
+                        startX: e.clientX, startY: e.clientY,
+                        startVal1: (nb.x as number) ?? 24, startVal2: 0,
+                        groupKey: 'nameBox'
+                      }
+                    }}
+                  >
+                    <div style={{
+                      position: 'absolute', left: 6, top: 2,
+                      fontSize: 9, whiteSpace: 'nowrap',
+                      color: 'rgba(255,180,40,0.7)',
+                      pointerEvents: 'none',
+                      fontFamily: 'monospace'
+                    }}>
+                      ≡ {Math.round(nbX + nbW / 2)}
+                    </div>
+                  </div>
+                )}
+
+                {/* 对话文本左边缘：调整 X 位置（带像素值标签） */}
                 {showDialogueText && (
                   <div
                     style={{
                       position: 'absolute',
-                      left: textX - 4,
-                      top: textY,
+                      left: dtX - 4,
+                      top: dtY,
                       width: 8,
-                      height: textMaxH,
+                      height: dtH,
                       cursor: 'ew-resize',
                       zIndex: 10,
                       background: 'rgba(100,200,255,0.3)',
                       borderRadius: 2,
-                      transition: 'background 0.15s'
+                      transition: 'background 0.15s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
                     }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(100,200,255,0.7)' }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(100,200,255,0.3)' }}
@@ -2038,28 +2455,33 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
                       e.stopPropagation()
                       document.body.style.cursor = 'ew-resize'
                       dragRef.current = {
-                        active: true, type: 'text-left-edge',
+                        active: true, type: 'text-x',
                         startX: e.clientX, startY: e.clientY,
-                        startVal1: dtLM, startVal2: 0,
+                        startVal1: (dt.x as number) ?? 12, startVal2: 0,
                         groupKey: 'dialogueText'
                       }
                     }}
-                  />
+                  >
+                    <span style={{ fontSize: 8, color: '#6cf', pointerEvents: 'none', writingMode: 'vertical-rl', textOrientation: 'mixed' }}>{(dt.x as number) ?? 0}</span>
+                  </div>
                 )}
-                {/* 对话文本右边缘：调整右侧边距 */}
+                {/* 对话文本右边缘：调整宽度（带像素值标签） */}
                 {showDialogueText && (
                   <div
                     style={{
                       position: 'absolute',
-                      left: textX + textW - 4,
-                      top: textY,
+                      left: dtX + dtW - 4,
+                      top: dtY,
                       width: 8,
-                      height: textMaxH,
+                      height: dtH,
                       cursor: 'ew-resize',
                       zIndex: 10,
                       background: 'rgba(100,200,255,0.3)',
                       borderRadius: 2,
-                      transition: 'background 0.15s'
+                      transition: 'background 0.15s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
                     }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(100,200,255,0.7)' }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(100,200,255,0.3)' }}
@@ -2070,20 +2492,52 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
                       dragRef.current = {
                         active: true, type: 'text-right-edge',
                         startX: e.clientX, startY: e.clientY,
-                        startVal1: dtRM, startVal2: 0,
+                        startVal1: dtW, startVal2: 0,
+                        groupKey: 'dialogueText'
+                      }
+                    }}
+                  >
+                    <span style={{ fontSize: 8, color: '#6cf', pointerEvents: 'none', writingMode: 'vertical-rl', textOrientation: 'mixed' }}>{Math.round(dtW)}</span>
+                  </div>
+                )}
+                {/* 对话文本上边缘：调整 Y 位置 */}
+                {showDialogueText && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: dtX,
+                      top: dtY - 4,
+                      width: dtW,
+                      height: 8,
+                      cursor: 'ns-resize',
+                      zIndex: 10,
+                      background: 'rgba(100,200,255,0.3)',
+                      borderRadius: 2,
+                      transition: 'background 0.15s'
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(100,200,255,0.7)' }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(100,200,255,0.3)' }}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      document.body.style.cursor = 'ns-resize'
+                      dragRef.current = {
+                        active: true, type: 'text-y',
+                        startX: e.clientX, startY: e.clientY,
+                        startVal1: (dt.y as number) ?? 54, startVal2: 0,
                         groupKey: 'dialogueText'
                       }
                     }}
                   />
                 )}
-                {/* 对话文本底边缘：调整底部边距 */}
+                {/* 对话文本底边缘：调整高度 */}
                 {showDialogueText && (
                   <div
                     style={{
                       position: 'absolute',
-                      left: textX,
-                      top: textY + textMaxH - 4,
-                      width: textW,
+                      left: dtX,
+                      top: dtY + dtH - 4,
+                      width: dtW,
                       height: 8,
                       cursor: 'ns-resize',
                       zIndex: 10,
@@ -2100,22 +2554,92 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
                       dragRef.current = {
                         active: true, type: 'text-bottom-edge',
                         startX: e.clientX, startY: e.clientY,
-                        startVal1: dtBM, startVal2: 0,
+                        startVal1: dtH, startVal2: 0,
                         groupKey: 'dialogueText'
                       }
                     }}
                   />
                 )}
 
-            {/* PixiJS 实时预览 - 由 ChoicePanel.preview() 绘制，与演出区域一致 */}
+                {/* 对话文本居中参考线：文本居中对齐时显示，可左右拖动调整文本 X 位置（保持宽度不变） */}
+                {showDialogueText && dtAlign === 'center' && dtW > 0 && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: dtX + dtW / 2 - 1,
+                      top: dtY,
+                      width: 2,
+                      height: dtH,
+                      cursor: 'ew-resize',
+                      zIndex: 11,
+                      background: 'rgba(100,200,255,0.4)',
+                      boxShadow: '0 0 4px rgba(100,200,255,0.3)',
+                      transition: 'background 0.15s'
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(100,200,255,0.8)' }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(100,200,255,0.4)' }}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      document.body.style.cursor = 'ew-resize'
+                      dragRef.current = {
+                        active: true, type: 'text-center-line',
+                        startX: e.clientX, startY: e.clientY,
+                        startVal1: (dt.x as number) ?? 12, startVal2: dtW,
+                        groupKey: 'dialogueText'
+                      }
+                    }}
+                  >
+                    {/* 居中小标签 */}
+                    <div style={{
+                      position: 'absolute', left: 6, top: 2,
+                      fontSize: 9, whiteSpace: 'nowrap',
+                      color: 'rgba(100,200,255,0.7)',
+                      pointerEvents: 'none',
+                      fontFamily: 'monospace'
+                    }}>
+                      ≡ {Math.round(dtX + dtW / 2)}
+                    </div>
+                  </div>
+                )}
+
+                {/* 尺寸标注面板：显示当前调整区域的精确尺寸 */}
+                {showDialogueText && (
+                  <div style={{
+                    position: 'absolute',
+                    left: boxX,
+                    top: boxY + boxH + 8,
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                    color: 'var(--text-tertiary)',
+                    display: 'flex',
+                    gap: 16,
+                    pointerEvents: 'none',
+                    zIndex: 12,
+                    whiteSpace: 'nowrap'
+                  }}>
+                    <span>文本框宽 <b style={{ color: '#6cf' }}>{Math.round(dtW)}</b>px</span>
+                    {showNameBox && (
+                      <span>姓名框宽 <b style={{ color: '#fc4' }}>{Math.round(nbW)}</b>px</span>
+                    )}
+                    {dtAlign === 'center' && (
+                      <span>居中线 <b style={{ color: '#6cf' }}>{Math.round(dtX + dtW / 2)}</b>px</span>
+                    )}
+                    {showNameBox && ntAlign === 'center' && (
+                      <span>姓名居中 <b style={{ color: '#fc4' }}>{Math.round(nbX + nbW / 2)}</b>px</span>
+                    )}
+                  </div>
+                )}
+
+            {/* PixiJS 引擎渲染 - 由 ChoicePanel.preview() 绘制，与演出区域一致 */}
             {previewMode === 'choice' && null}
           </div>{/* end inner virtual stage div */}
           </div>{/* end preview ref container */}
 
-          {/* ---- 预览开关工具栏 ---- */}
+          {/* ---- 显示开关工具栏 ---- */}
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16,
-            padding: '6px 16px', background: '#1e1e32', borderTop: '1px solid #333',
+            padding: '6px 16px', background: 'var(--panel-bg)', borderTop: '1px solid var(--border)',
             flexShrink: 0, fontSize: 12
           }}>
             {renderToggle('示例角色', showExampleCharacter, setShowExampleCharacter, true)}
@@ -2136,8 +2660,8 @@ export function TemplateSettings({ onBack }: TemplateSettingsProps): JSX.Element
             left: '50%',
             transform: 'translateX(-50%)',
             padding: '8px 24px',
-            background: '#333',
-            color: '#cdd6f4',
+            background: 'var(--panel-bg)',
+            color: 'var(--text)',
             borderRadius: 8,
             fontSize: 14,
             zIndex: 9999,
