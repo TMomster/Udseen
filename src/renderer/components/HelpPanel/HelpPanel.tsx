@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 
 // ─── 文档数据类型 ───
 
@@ -297,21 +297,30 @@ const SIMPLE_DOCS: DocCategory[] = [
         title: '切换背景',
         content: [
           '用 Background.set 创建背景，再 begin() 让它显示出来。',
-          '新的背景会覆盖旧的背景。',
           '',
           '示例：',
           '  let bg = Background.set("castle.jpg");',
-          '  bg.fit();     // 智能缩放填满舞台',
           '  bg.begin();',
           '',
-          '背景图通过 .fit() 智能缩放到填满舞台（1920×1080）。',
+          '背景图会自动缩放到填满舞台（1920×1080）。',
           '图片放在 assets/public/background/ 文件夹里。',
           '',
-          '纯色背景预置（顶层覆盖）：',
-          '  Background.full_screen();    // 全屏黑色覆盖',
-          '  Background.full_white();     // 全屏白色覆盖',
+          '背景支持底层/顶层两个独立槽位：',
+          '  bg.index(0);    // 底层（默认），同时只能有一张底层背景',
+          '  bg.index(1);    // 顶层，会覆盖所有角色，同时只能有一张顶层背景',
           '',
-          '这两个预置会自动在最顶层显示（zIndex=10000），适合黑屏+文字等场景。'
+          '底层和顶层可以同时存在，互不冲突。',
+          '在同一层设置新背景时，旧背景会被自动移除。',
+          '',
+          '示例：',
+          '  let sky = Background.set("sky.jpg");',
+          '  sky.begin();                      // 默认放在底层',
+          '  let overlay = Background.set("fog.png");',
+          '  overlay.index(1);                 // 放在顶层，覆盖所有角色',
+          '  overlay.begin();',
+          '',
+          '  bg.visible(true);  // 显示/隐藏背景',
+          '  bg.visible(false);'
         ]
       },
       {
@@ -346,7 +355,9 @@ const SIMPLE_DOCS: DocCategory[] = [
           '  bg.rotate(180, 3000);    ← 数值=角度（顺时针旋转，90=四分之一圈）',
           '                              3000毫秒=3秒内慢慢转半圈',
           '',
-          '注意：背景不支持 index() 图层控制。背景默认在最底层。'
+          '背景支持 index() 图层控制：0=底层（默认），1=顶层（覆盖所有角色）。',
+          '  底层和顶层各为独立槽位，同一层只允许一张背景，新背景会自动替换旧背景。',
+          '  bg.visible(true/false) 控制显隐。'
         ]
       }
     ]
@@ -802,7 +813,7 @@ const DEEP_DOCS: DocCategory[] = [
           '  scaleTo(val, time=0)       - 缩放到的目标倍数（基于初始状态的总缩放量）',
           '',
           '图层控制：',
-          '  index(val)                 - 图层级，值越大越靠上（覆盖在其他角色前面）'
+          '  index(val)                 - 图层级，范围 1~9999（数值越大越靠上，默认 1）'
         ]
       },
       {
@@ -874,21 +885,26 @@ const DEEP_DOCS: DocCategory[] = [
           '',
           '返回值：Background 对象实例',
           '',
-          '背景图片通过 .fit() 智能缩放到填满舞台（cover 模式，1920x1080）。',
+          '背景图片会自动缩放到填满舞台（cover 模式，1920x1080）。',
           '支持格式：png、jpg、gif、webp',
           '',
           '示例：',
           '  let bg = Background.set("castle.jpg", "城堡");',
-          '  bg.fit();       // 智能缩放填满舞台',
           '  bg.begin();',
           '',
-          '预置背景方法（无需参数，直接创建全屏纯色覆盖）：',
-          '  Background.full_screen()   - 全屏黑色覆盖（顶层，zIndex=10000）',
-          '  Background.full_white()    - 全屏白色覆盖（顶层，zIndex=10000）',
+          '背景层级控制：',
+          '  bg.index(val)    - 设置层级，val 只能为 0（底层）或 1（顶层，覆盖所有角色）',
+          '    默认值 0（底层）。顶层背景会被放到 zIndex 10000 确保覆盖所有角色。',
+          '  bg.visible(true)  - 显示背景',
+          '  bg.visible(false) - 隐藏背景',
+          '',
+          '每个层（底层/顶层）都是独立单例槽位，同一层同时只能有一张背景。',
+          '在已占用层设置新背景会自动移除旧背景。',
+          '底层和顶层可以同时存在，互不冲突。',
           '',
           '示例：',
-          '  Background.full_screen();  // 全屏变黑',
-          '  say("一片漆黑...只有文字在闪烁。");',
+          '  let bg = Background.set("dark.jpg", "黑暗");',
+          '  bg.index(1);    // 放到顶层，覆盖所有角色',
         ]
       },
       {
@@ -939,7 +955,10 @@ const DEEP_DOCS: DocCategory[] = [
           '旋转：',
           '  bg.rotate(angle, time)     ← angle=旋转角度（度，正数=顺时针）',
           '',
-          '⚠ 背景不支持 index() 方法，默认处于场景最底层。'
+          '背景支持 index(val) 图层控制：0=底层（默认），1=顶层（覆盖所有角色）。',
+          '  顶层背景被分配到 zIndex=10000，确保在所有角色之上。',
+          '  底层和顶层各为独立单例槽位，同一层同时只允许一张背景。',
+          '  bg.visible(true/false) 控制背景显隐。'
         ]
       }
     ]
@@ -1177,6 +1196,128 @@ const DEEP_DOCS: DocCategory[] = [
   }
 ]
 
+// ─── 关于文档内容 ───
+
+const ABOUT_SECTIONS: { title: string; lines: string[] }[] = [
+  {
+    title: '关于 Udseen',
+    lines: [
+      'Udseen（读音：/juːdˈsiːn/）是一款开源的逻辑式视觉小说引擎与编辑器。',
+      '它提供了一个可视化的创作环境，让创作者可以通过脚本语言快速编写交互式视觉小说（Visual Novel）类游戏。',
+      '',
+      'Udseen 以 TypeScript 编写的 DSL（领域特定语言）作为脚本语言，支持角色管理、背景切换、音频控制、分支选择等视觉小说核心功能。',
+      '编辑器集成了 Monaco Editor（代码编辑）、可视化块编辑器、实时舞台预览等工具，覆盖了从脚本编写到成品展示的完整创作流程。',
+      '',
+      '项目主页：https://github.com/TMomster/udseen',
+      '开发者：TMomster',
+      '版本：1.0.0',
+    ]
+  },
+  {
+    title: '使用到的开源技术',
+    lines: [
+      'Udseen 建立在以下优秀的开源项目之上，感谢所有贡献者的付出：',
+      '',
+      '── 框架与运行时 ──',
+      '  Electron 28          — MIT License, https://electronjs.org/',
+      '  React 18             — MIT License, https://react.dev/',
+      '  TypeScript 5         — Apache 2.0, https://www.typescriptlang.org/',
+      '',
+      '── 渲染与动画 ──',
+      '  Pixi.js 7            — MIT License, https://pixijs.com/',
+      '  Pixi-filters 5       — MIT License',
+      '  GSAP 3.12            — Standard License, https://gsap.com/',
+      '  Gifuct-js 2          — MIT License',
+      '',
+      '── 编辑器与语言服务 ──',
+      '  Monaco Editor 0.45   — MIT License, https://microsoft.github.io/monaco-editor/',
+      '  Langium 2            — MIT License, https://langium.org/',
+      '',
+      '── 状态管理与工具 ──',
+      '  Zustand 4            — MIT License',
+      '  Howler.js 2          — MIT License, https://howlerjs.com/',
+      '  Pidusage 3           — MIT License',
+      '',
+      '── 构建与测试 ──',
+      '  Vite (electron-vite) — MIT License',
+      '  Vitest               — MIT License',
+      '  Electron-builder     — MIT License',
+      '  ESLint               — MIT License',
+      '  Prettier             — MIT License',
+      '',
+      '完整的三方许可声明请参阅软件安装目录下的 THIRD-PARTY-LICENSES 文件。'
+    ]
+  },
+  {
+    title: '声明',
+    lines: [
+      '本软件按"原样"提供，不提供任何明示或暗示的保证，包括但不限于对适销性、特定用途适用性和非侵权性的暗示保证。',
+      '',
+      '在任何情况下，开发者及贡献者均不对因使用本软件或与本软件的使用相关的任何直接、间接、附带、特殊、惩罚性或后果性损害承担责任，即使已被告知可能发生此类损害。',
+      '',
+      '使用者通过 Udseen 创作的视觉小说作品，其内容版权归创作者本人所有。',
+      '创作者应确保其作品内容不违反所在国家/地区的法律法规，不侵犯任何第三方的合法权益。',
+      '',
+      'Udseen 仅提供创作工具，对用户使用本工具产生的任何内容不承担法律责任。'
+    ]
+  },
+  {
+    title: '隐私政策',
+    lines: [
+      'Udseen 尊重并保护用户隐私。以下是本软件的隐私相关说明：',
+      '',
+      '1. 数据收集',
+      '  Udseen 不会主动收集任何个人信息。所有用户数据（包括脚本文件、项目资源、配置设置）仅存储在用户本地设备上。',
+      '',
+      '2. 网络通信',
+      '  本软件仅在以下情况下进行网络通信：',
+      '  - 用户主动使用「检查更新」功能时',
+      '  - 用户主动从在线资源库导入素材时',
+      '  除此之外，Udseen 不会在后台进行任何形式的网络数据传输。',
+      '',
+      '3. 第三方服务',
+      '  Udseen 不使用任何第三方分析服务、广告服务或数据追踪服务。',
+      '',
+      '4. 本地存储',
+      '  用户的项目文件、配置偏好等数据均存储在本地文件系统中。删除软件时，用户应自行备份和删除相关项目文件。',
+      '',
+      '5. 政策更新',
+      '  本隐私政策可能随软件版本更新而调整。请以最新版本附带的政策为准。'
+    ]
+  },
+  {
+    title: '许可证',
+    lines: [
+      'Copyright (c) 2025 TMomster',
+      '',
+      '本软件采用 MIT 许可证发布。',
+      '',
+      'MIT License',
+      '',
+      'Permission is hereby granted, free of charge, to any person obtaining a copy',
+      'of this software and associated documentation files (the "Software"), to deal',
+      'in the Software without restriction, including without limitation the rights',
+      'to use, copy, modify, merge, publish, distribute, sublicense, and/or sell',
+      'copies of the Software, and to permit persons to whom the Software is',
+      'furnished to do so, subject to the following conditions:',
+      '',
+      'The above copyright notice and this permission notice shall be included in all',
+      'copies or substantial portions of the Software.',
+      '',
+      'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR',
+      'IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,',
+      'FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE',
+      'AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER',
+      'LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,',
+      'OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE',
+      'SOFTWARE.',
+      '',
+      '本协议适用于 Udseen 项目本身的代码。项目中使用的第三方库遵循其各自的许可证（见「使用到的开源技术」部分）。',
+      '用户通过 Udseen 创作的作品不受本许可证约束。'
+    ]
+  }
+]
+
 // ─── API 总表组件（HTML 表格，不做解释） ───
 
 interface ApiRow {
@@ -1197,8 +1338,6 @@ const API_SECTIONS: ApiSection[] = [
     rows: [
       { name: 'Character.set', signature: 'Character.set(imagePath: str, displayName?: str)', desc: '→ Character' },
       { name: 'Background.set', signature: 'Background.set(imagePath: str, displayName?: str)', desc: '→ Background' },
-      { name: 'Background.full_screen', signature: 'Background.full_screen()', desc: '→ Background（纯黑全屏覆盖）' },
-      { name: 'Background.full_white', signature: 'Background.full_white()', desc: '→ Background（纯白全屏覆盖）' },
       { name: 'Audio.set', signature: 'Audio.set(path: str)', desc: '→ AudioObject' },
       { name: 'Filter.set', signature: 'Filter.set()', desc: '→ FilterObject' },
       { name: 'Text.set', signature: 'Text.set(text: str, displayName?: str)', desc: '→ Text（文本对象）' },
@@ -1246,7 +1385,6 @@ const API_SECTIONS: ApiSection[] = [
           { name: 'visible', signature: 'obj.visible(able: bool, time?: num)', desc: '显示/隐藏，带 time 则渐显渐隐' },
           { name: 'end', signature: 'obj.end()', desc: '销毁释放资源' },
           { name: 'isActive', signature: 'obj.isActive() → bool', desc: '检查是否在舞台上' },
-          { name: 'fit', signature: 'obj.fit()', desc: '智能缩放，填满舞台（1920×1080）' },
         ]
       },
       {
@@ -1286,7 +1424,7 @@ const API_SECTIONS: ApiSection[] = [
           { name: 'scaleYTo', signature: 'obj.scaleYTo(val: num, time?: num)', desc: 'Y 缩放到目标倍数' },
           { name: 'rotate', signature: 'obj.rotate(angle: num, time?: num)', desc: '相对旋转（度）' },
           { name: 'rotateTo', signature: 'obj.rotateTo(angle: num, time?: num)', desc: '旋转到绝对角度（度）' },
-          { name: 'index', signature: 'obj.index(val: num)', desc: '设置图层（值越大越靠上）' },
+          { name: 'index', signature: 'obj.index(val: num)', desc: '设置图层：Character 范围 1~9999，Background 仅 0（底层）或 1（顶层）' },
           { name: 'setAlpha', signature: 'obj.setAlpha(val: num, time?: num)', desc: '直接设置透明度' },
           { name: 'setScale', signature: 'obj.setScale(val: num, time?: num)', desc: '直接设置缩放' },
           { name: 'setScale', signature: 'obj.setScale(sx: num, sy: num, time?: num)', desc: '单独设置 XY 缩放' },
@@ -1381,20 +1519,20 @@ const tableStyle: React.CSSProperties = {
 }
 
 const thStyle: React.CSSProperties = {
-  border: '1px solid rgba(255,255,255,0.12)',
+  border: '1px solid var(--border)',
   padding: '6px 10px',
   textAlign: 'left',
-  background: 'rgba(255,255,255,0.06)',
+  background: 'rgba(255,255,255,0.04)',
   fontWeight: 600,
-  color: '#89b4fa',
+  color: 'var(--accent)',
   whiteSpace: 'nowrap',
 }
 
 const tdStyle: React.CSSProperties = {
-  border: '1px solid rgba(255,255,255,0.08)',
+  border: '1px solid var(--border)',
   padding: '5px 10px',
   verticalAlign: 'top',
-  color: '#cdd6f4',
+  color: 'var(--text)',
   fontFamily: '"Cascadia Code", "Fira Code", "JetBrains Mono", monospace',
   fontSize: 12,
 }
@@ -1402,29 +1540,47 @@ const tdStyle: React.CSSProperties = {
 const sectionTitleStyle: React.CSSProperties = {
   fontSize: 16,
   fontWeight: 700,
-  color: '#f5c2e7',
+  color: 'var(--accent)',
   margin: '20px 0 8px 0',
   paddingBottom: 4,
-  borderBottom: '2px solid rgba(245,194,231,0.3)',
+  borderBottom: '2px solid var(--accent)',
 }
 
 const subsectionTitleStyle: React.CSSProperties = {
   fontSize: 14,
   fontWeight: 600,
-  color: '#a6e3a1',
+  color: 'var(--accent)',
   margin: '12px 0 6px 0',
 }
 
-function ApiTableSection({ section }: { section: ApiSection }): JSX.Element {
+function ApiTableSection({ section, filter }: { section: ApiSection; filter?: string }): JSX.Element | null {
   const columns = section.title === '全局工厂方法' || section.title === 'Math 对象'
     ? ['名称', '签名', '返回类型']
     : ['名称', '签名', '说明']
 
+  // 行过滤
+  const matchRow = (row: ApiRow): boolean => {
+    if (!filter) return true
+    const q = filter.toLowerCase()
+    return (
+      row.name.toLowerCase().includes(q) ||
+      row.signature.toLowerCase().includes(q) ||
+      row.desc.toLowerCase().includes(q)
+    )
+  }
+
   if (section.subsections) {
+    const subs = filter
+      ? section.subsections
+          .map((sub) => ({ ...sub, rows: sub.rows.filter(matchRow) }))
+          .filter((sub) => sub.rows.length > 0)
+      : section.subsections
+    if (subs.length === 0) return null
+
     return (
       <div>
         <div style={sectionTitleStyle}>{section.title}</div>
-        {section.subsections.map((sub) => (
+        {subs.map((sub) => (
           <div key={sub.title}>
             <div style={subsectionTitleStyle}>{sub.title}</div>
             <table style={tableStyle}>
@@ -1438,7 +1594,7 @@ function ApiTableSection({ section }: { section: ApiSection }): JSX.Element {
               <tbody>
                 {sub.rows.map((row, i) => (
                   <tr key={i}>
-                    <td style={{ ...tdStyle, color: '#f9e2af', fontWeight: 500 }}>{row.name}</td>
+                    <td style={{ ...tdStyle, color: 'var(--accent)', fontWeight: 500 }}>{row.name}</td>
                     <td style={tdStyle}>{row.signature}</td>
                     <td style={tdStyle}>{row.desc}</td>
                   </tr>
@@ -1450,6 +1606,9 @@ function ApiTableSection({ section }: { section: ApiSection }): JSX.Element {
       </div>
     )
   }
+
+  const rows = section.rows!.filter(matchRow)
+  if (rows.length === 0) return null
 
   return (
     <div>
@@ -1465,7 +1624,7 @@ function ApiTableSection({ section }: { section: ApiSection }): JSX.Element {
           </tr>
         </thead>
         <tbody>
-          {section.rows!.map((row, i) => (
+          {rows.map((row, i) => (
             <tr key={i}>
               <td style={{ ...tdStyle, color: '#f9e2af', fontWeight: 500 }}>{row.name}</td>
               <td style={tdStyle}>{row.signature}</td>
@@ -1479,11 +1638,72 @@ function ApiTableSection({ section }: { section: ApiSection }): JSX.Element {
 }
 
 function ApiTable(): JSX.Element {
+  const [apiSearch, setApiSearch] = useState('')
+  const q = apiSearch.trim().toLowerCase()
+
+  // 过滤行数据
+  const filterRows = (rows: ApiRow[]) =>
+    !q ? rows : rows.filter(
+      (r) =>
+        r.name.toLowerCase().includes(q) ||
+        r.signature.toLowerCase().includes(q) ||
+        r.desc.toLowerCase().includes(q)
+    )
+
+  const filterSubsections = (subsections: { title: string; rows: ApiRow[] }[]) =>
+    !q
+      ? subsections
+      : subsections
+          .map((sub) => ({ ...sub, rows: filterRows(sub.rows) }))
+          .filter((sub) => sub.rows.length > 0)
+
+  // 过滤顶层 section（无 subsections 的 rows）
+  const topLevelRows = (rows: ApiRow[]) => filterRows(rows)
+
+  // 整个 section 是否应该显示（有数据显示 + 无 subsections 的有匹配行）
+  const sectionVisible = (section: ApiSection): boolean => {
+    if (!q) return true
+    if (section.subsections) {
+      return filterSubsections(section.subsections).length > 0
+    }
+    if (section.rows) {
+      return topLevelRows(section.rows).length > 0
+    }
+    return false
+  }
+
+  const filteredSections = !q ? API_SECTIONS : API_SECTIONS.filter(sectionVisible)
+
   return (
     <div>
-      {API_SECTIONS.map((section, i) => (
-        <ApiTableSection key={i} section={section} />
-      ))}
+      <div style={{ marginBottom: 16 }}>
+        <input
+          type="text"
+          placeholder="搜索 API…"
+          value={apiSearch}
+          onChange={(e) => setApiSearch(e.target.value)}
+          style={{
+            width: '100%',
+            boxSizing: 'border-box',
+            padding: '8px 12px',
+            border: '1px solid var(--accent)',
+            borderRadius: 6,
+            background: 'var(--bg)',
+            color: 'var(--text)',
+            fontSize: 14,
+            outline: 'none',
+          }}
+        />
+      </div>
+      {filteredSections.length === 0 && q ? (
+        <div style={{ padding: '20px 0', fontSize: 14, color: 'var(--text-tertiary)', textAlign: 'center' }}>
+          未找到匹配的 API
+        </div>
+      ) : (
+        filteredSections.map((section, i) => (
+          <ApiTableSection key={i} section={section} filter={q} />
+        ))
+      )}
     </div>
   )
 }
@@ -1491,10 +1711,19 @@ function ApiTable(): JSX.Element {
 // ─── HelpPanel 组件 ───
 
 export function HelpPanel({ onBack }: { onBack: () => void }): JSX.Element {
-  const [docMode, setDocMode] = useState<'simple' | 'deep' | 'table'>('simple')
+  const [docMode, setDocMode] = useState<'simple' | 'deep' | 'table' | 'about'>('simple')
   const docs = docMode === 'simple' ? SIMPLE_DOCS : docMode === 'deep' ? DEEP_DOCS : []
   const [activeCategory, setActiveCategory] = useState(docs.length > 0 ? docs[0].id : '')
   const [activeItem, setActiveItem] = useState(docs.length > 0 ? docs[0].items[0].id : '')
+  const [aboutSection, setAboutSection] = useState(0)
+  // 跟踪已点击条目集合，用于显示"已访问"标记
+  const visitedRef = useRef<Set<string>>(new Set())
+
+  const handleItemClick = useCallback((catId: string, itemId: string) => {
+    visitedRef.current.add(itemId)
+    setActiveCategory(catId)
+    setActiveItem(itemId)
+  }, [])
 
   const category = docs.length > 0 ? (docs.find((c) => c.id === activeCategory) ?? docs[0]) : null
   const item = category && (category.items.find((i) => i.id === activeItem) ?? category.items[0])
@@ -1543,6 +1772,15 @@ export function HelpPanel({ onBack }: { onBack: () => void }): JSX.Element {
             >
               API 总表
             </button>
+            <button
+              onClick={() => setDocMode('about')}
+              style={{
+                ...styles.modeBtn,
+                ...(docMode === 'about' ? styles.modeBtnActive : {})
+              }}
+            >
+              关于
+            </button>
           </div>
           <button onClick={onBack} style={styles.backBtn}>返回</button>
         </div>
@@ -1556,6 +1794,37 @@ export function HelpPanel({ onBack }: { onBack: () => void }): JSX.Element {
               <ApiTable />
             </div>
           </div>
+        ) : docMode === 'about' ? (
+          <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+            <div style={styles.sidebar}>
+              {ABOUT_SECTIONS.map((sec, idx) => (
+                <div key={idx}>
+                  <div
+                    onClick={() => setAboutSection(idx)}
+                    style={{
+                      ...styles.sidebarItem,
+                      ...(aboutSection === idx ? styles.sidebarItemActive : {})
+                    }}
+                  >
+                    {sec.title}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={styles.contentArea}>
+              <div style={styles.contentTitle}>{ABOUT_SECTIONS[aboutSection].title}</div>
+              <div style={{ ...styles.contentBody, fontFamily: 'inherit', fontSize: 14 }}>
+                {ABOUT_SECTIONS[aboutSection].lines.map((line, i) => {
+                  if (line === '') return <br key={i} />
+                  return (
+                    <div key={i} style={styles.contentLine}>
+                      {line}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
         ) : (
           <>
             <div style={styles.sidebar}>
@@ -1565,14 +1834,14 @@ export function HelpPanel({ onBack }: { onBack: () => void }): JSX.Element {
                   {cat.items.map((it) => (
                     <div
                       key={it.id}
-                      onClick={() => {
-                        setActiveCategory(cat.id)
-                        setActiveItem(it.id)
-                      }}
+                      onClick={() => handleItemClick(cat.id, it.id)}
                       style={{
                         ...styles.sidebarItem,
                         ...(activeItem === it.id && activeCategory === cat.id
                           ? styles.sidebarItemActive
+                          : {}),
+                        ...(visitedRef.current.has(it.id) && !(activeItem === it.id && activeCategory === cat.id)
+                          ? styles.sidebarItemVisited
                           : {})
                       }}
                     >
@@ -1621,8 +1890,8 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     height: '100%',
-    background: '#1a1a2e',
-    color: '#cdd6f4',
+    background: 'var(--bg)',
+    color: 'var(--text)',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     overflow: 'hidden'
   },
@@ -1631,14 +1900,14 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: '10px 20px',
-    background: '#252540',
-    borderBottom: '1px solid rgba(255,255,255,0.06)',
+    background: 'var(--panel-bg)',
+    borderBottom: '1px solid var(--border)',
     flexShrink: 0
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 700,
-    color: '#cdd6f4',
+    color: 'var(--text)',
     letterSpacing: 0.5
   },
   headerRight: {
@@ -1648,7 +1917,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   modeSwitch: {
     display: 'flex',
-    background: '#1e1e32',
+    background: 'var(--bg)',
     borderRadius: 8,
     padding: 2,
     gap: 2
@@ -1660,19 +1929,19 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     fontSize: 13,
     background: 'transparent',
-    color: '#888',
+    color: 'var(--text-tertiary)',
     transition: 'all 0.15s'
   },
   modeBtnActive: {
-    background: '#7c6ff0',
-    color: '#fff',
+    background: 'var(--accent)',
+    color: 'var(--text)',
     fontWeight: 600
   },
   backBtn: {
     padding: '6px 20px',
-    background: '#3a3a5a',
-    border: '1px solid rgba(255,255,255,0.1)',
-    color: '#cdd6f4',
+    background: 'var(--panel-bg)',
+    border: '1px solid var(--border)',
+    color: 'var(--text)',
     borderRadius: 6,
     cursor: 'pointer',
     fontSize: 13
@@ -1685,15 +1954,15 @@ const styles: Record<string, React.CSSProperties> = {
   sidebar: {
     width: 220,
     flexShrink: 0,
-    background: '#1e1e32',
-    borderRight: '1px solid rgba(255,255,255,0.06)',
+    background: 'var(--bg)',
+    borderRight: '1px solid var(--border)',
     overflowY: 'auto',
     padding: '8px 0'
   },
   categoryLabel: {
     padding: '10px 16px 4px',
     fontSize: 11,
-    color: '#667',
+    color: 'var(--text-tertiary)',
     fontWeight: 600,
     letterSpacing: 1,
     textTransform: 'uppercase'
@@ -1702,14 +1971,20 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '6px 16px 6px 24px',
     cursor: 'pointer',
     fontSize: 13,
-    color: '#999',
+    color: 'var(--text-secondary)',
     borderLeft: '3px solid transparent',
     transition: 'all 0.15s'
   },
   sidebarItemActive: {
-    color: '#fff',
-    background: 'rgba(124,111,240,0.15)',
-    borderLeftColor: '#7c6ff0'
+    color: 'var(--text)',
+    background: 'var(--accent-subtle)',
+    borderLeftColor: 'var(--accent)'
+  },
+  sidebarItemVisited: {
+    borderLeftColor: 'var(--border-focus)',
+    borderLeftWidth: 3,
+    borderLeftStyle: 'solid',
+    opacity: 0.85
   },
   contentArea: {
     flex: 1,
@@ -1719,16 +1994,16 @@ const styles: Record<string, React.CSSProperties> = {
   contentTitle: {
     fontSize: 22,
     fontWeight: 700,
-    color: '#e0e0f0',
+    color: 'var(--text)',
     marginBottom: 20,
     paddingBottom: 12,
-    borderBottom: '1px solid rgba(255,255,255,0.06)'
+    borderBottom: '1px solid var(--border)'
   },
   contentBody: {
     fontFamily: "'SF Mono', 'Fira Code', 'Consolas', monospace",
     fontSize: 14,
     lineHeight: 1.7,
-    color: '#c0c8e0'
+    color: 'var(--text-secondary)'
   },
   contentLine: {
     whiteSpace: 'pre-wrap',
@@ -1737,11 +2012,11 @@ const styles: Record<string, React.CSSProperties> = {
   tip: {
     marginTop: 32,
     padding: '12px 16px',
-    background: 'rgba(124,111,240,0.1)',
-    border: '1px solid rgba(124,111,240,0.25)',
+    background: 'var(--accent-subtle)',
+    border: '1px solid var(--accent)',
     borderRadius: 8,
     fontSize: 13,
-    color: '#aab0d0',
+    color: 'var(--text-secondary)',
     lineHeight: 1.5
   }
 }
