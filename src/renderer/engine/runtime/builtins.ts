@@ -34,7 +34,7 @@ export function registerBuiltins(runtime: Runtime): void {
     }
     const audioPath = audio !== undefined ? String(audio) : undefined
     const audioDuration = await runtime.playDialogueAudio(audioPath)
-    await runtime.onDialogue(null, String(text), undefined, audioDuration)
+    await runtime.onDialogue(null, String(text), undefined, audioDuration, audioPath)
   }) as unknown as RuntimeValue)
 
   // parallel and sequence as callable functions
