@@ -70,12 +70,19 @@ class TextureCacheImpl {
   // ---- 内部 ----
 
   private async loadImage(path: string): Promise<PIXI.Texture> {
+    // 先尝试 PIXI.Assets.load
     try {
-      return await PIXI.Assets.load(path)
+      const texture = await PIXI.Assets.load(path)
+      // Assets.load 可能对不存在的文件返回无效纹理（valid=false）而非抛异常
+      // 此处主动检查，若无效则降级到原生 Image 加载
+      if (texture && texture.valid) {
+        return texture
+      }
     } catch {
-      // Assets.load 失败，使用原生 Image 元素
+      // Assets.load 失败，降级到原生 Image
     }
 
+    // 原生 Image 元素加载（兼容 Electron file:// 等环境）
     try {
       const texture = await new Promise<PIXI.Texture>((resolve, reject) => {
         const img = new Image()

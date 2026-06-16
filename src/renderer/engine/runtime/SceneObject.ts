@@ -90,7 +90,7 @@ export class SceneObject {
     this.destroySprite()
     this.frameAnimator.clear()
 
-    const result = await TextureLoader.load(texturePath, this.id)
+    const result = await TextureLoader.load(texturePath, this.id, this.objectType)
 
     // 动图：保存帧序列但不保存 texturePath（GIF 帧不通过 TextureCache 管理）
     if (result.isAnimated && result.textures.length > 1) {
@@ -250,7 +250,8 @@ export class SceneObject {
 
   private destroySprite(): void {
     this.frameAnimator.clear()
-    if (this.sprite) {
+    if (!this.sprite) return
+    try {
       gsap.killTweensOf(this.sprite)
       if (this.sprite.parent) {
         this.sprite.parent.removeChild(this.sprite)
@@ -258,12 +259,24 @@ export class SceneObject {
       if (this.texturePath && this.sprite.texture) {
         TextureCache.release(this.texturePath)
       } else if (this.sprite.texture) {
+        // 从 TextureCache 释放或独立销毁纹理
+        // 对于共享纹理（如错误图），destroy(true) 可能会影响其他引用，
+        // 但我们每次都 clone() 返回独立纹理，所以此处安全
         this.sprite.texture.destroy(true)
       }
-      this.texturePath = ''
-      this.sprite.destroy()
-      this.sprite = null
+    } catch (err) {
+      console.warn('[SceneObject] destroySprite 异常（已忽略）:', err)
     }
+    this.texturePath = ''
+    if (this.sprite) {
+      try {
+        // 使用 texture:false 避免销毁共享的 BaseTexture（如错误纹理缓存的 BaseTexture）
+        this.sprite.destroy({ children: true, texture: false })
+      } catch (err) {
+        console.warn('[SceneObject] sprite.destroy 异常（已忽略）:', err)
+      }
+    }
+    this.sprite = null
   }
 
   // ---- 位置相关 ----

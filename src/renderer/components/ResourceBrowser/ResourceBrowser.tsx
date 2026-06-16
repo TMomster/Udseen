@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useAssetStore } from '../../store/assetStore'
 import { useSettingsStore } from '../../store/settingsStore'
+import { getErrorImageUrl } from '../../assets/ErrorImages'
 
 
 interface FileEntry {
@@ -209,7 +210,11 @@ export function ResourceBrowser({ onResourceDrag }: ResourceBrowserProps): JSX.E
         setPreview({ visible: true, x: left, y: top, entry, loading: false })
       }
     } catch {
-      setPreview({ visible: true, x: left, y: top, entry, error: '加载失败' })
+      // 加载失败时自动显示错误图片，根据路径中的子目录类型选择对应错误图
+      const errorUrl = entry.fullPath.includes('/background/') || entry.fullPath.includes('\\background\\')
+        ? getErrorImageUrl('background')
+        : getErrorImageUrl('character')
+      setPreview({ visible: true, x: left, y: top, entry, dataUrl: errorUrl })
     }
   }, [])
 

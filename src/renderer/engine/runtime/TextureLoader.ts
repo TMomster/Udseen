@@ -1,6 +1,7 @@
 import * as PIXI from 'pixi.js'
 import { parseGIF, decompressFrames } from 'gifuct-js'
 import { TextureCache } from './TextureCache'
+import { getErrorTexture } from '../../assets/ErrorImages'
 
 /**
  * 纹理加载结果：普通纹理或动图帧序列
@@ -22,21 +23,29 @@ export class TextureLoader {
   /**
    * 加载纹理文件
    * @param path 文件路径
-   * @param id 场景对象 ID（用于占位纹理的颜色判断）
+   * @param objectType 对象类型（如 'Background' / 'Character'），加载失败时用于显示对应错误图
    */
-  static async loadTexture(path: string): Promise<PIXI.Texture> {
+  static async loadTexture(path: string, objectType: string = ''): Promise<PIXI.Texture> {
     try {
-      return await TextureCache.get(path)
+      const texture = await TextureCache.get(path)
+      // 检查纹理有效性：PixiJS 7 中 Assets.load() 对不存在的文件可能返回无效纹理（valid=false）
+      // 而不是抛出异常，因此必须主动检查纹理是否真正可用
+      if (!texture || !texture.valid) {
+        console.warn('[Udseen] 纹理无效（valid=false），使用占位纹理:', path)
+        return TextureLoader.createPlaceholderTexture(objectType)
+      }
+      return texture
     } catch (err) {
       console.error('[Udseen] 纹理加载失败:', path, err)
-      return TextureLoader.createPlaceholderTexture('bg')
+      return TextureLoader.createPlaceholderTexture(objectType)
     }
   }
 
   /**
    * 异步加载：先尝试 GIF 解析，失败则回退普通图片
+   * @param objectType 对象类型，加载失败时用于显示对应错误图
    */
-  static async load(path: string, id: string): Promise<TextureLoadResult> {
+  static async load(path: string, id: string, objectType: string = ''): Promise<TextureLoadResult> {
     // 尝试作为 GIF 动图加载
     if (path.toLowerCase().endsWith('.gif')) {
       const result = await TextureLoader.loadAnimatedGIF(path)
@@ -47,7 +56,7 @@ export class TextureLoader {
     }
 
     // 普通图片加载
-    const texture = await TextureLoader.loadTexture(path)
+    const texture = await TextureLoader.loadTexture(path, objectType)
     return {
       isAnimated: false,
       textures: [texture],
@@ -57,38 +66,10 @@ export class TextureLoader {
 
   /**
    * 生成占位纹理（资源加载失败时使用）
-   * 紫色背景矩形 + 黑色外描边 + 白色内描边 + 红色 ERROR 文字
+   * @param objectType 对象类型：'Background' 显示背景错误图，'Character' 显示角色错误图，其他类型也使用默认错误图
    */
-  static createPlaceholderTexture(_idHint: string = ''): PIXI.Texture {
-    const W = 400, H = 300
-    const canvas = document.createElement('canvas')
-    canvas.width = W
-    canvas.height = H
-    const ctx = canvas.getContext('2d')!
-
-    // 紫色背景
-    ctx.fillStyle = '#6a0dad'
-    ctx.fillRect(0, 0, W, H)
-
-    // 黑色外描边（6px）
-    ctx.strokeStyle = '#000000'
-    ctx.lineWidth = 6
-    ctx.strokeRect(3, 3, W - 6, H - 6)
-
-    // 白色内描边（4px）
-    ctx.strokeStyle = '#ffffff'
-    ctx.lineWidth = 4
-    ctx.strokeRect(9, 9, W - 18, H - 18)
-
-    // 红色 ERROR 文字（居中）
-    ctx.fillStyle = '#ff2222'
-    ctx.font = `bold ${Math.min(W, H) * 0.2}px Arial, "Microsoft YaHei", sans-serif`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText('ERROR', W / 2, H / 2)
-
-    const base = new PIXI.BaseTexture(canvas, { resolution: 1 })
-    return new PIXI.Texture(base)
+  static createPlaceholderTexture(objectType: string = ''): PIXI.Texture {
+    return getErrorTexture(objectType)
   }
 
   /** 解析 GIF 文件为帧纹理数组 */

@@ -294,7 +294,11 @@ export class Runtime {
       // 代数检查：只有当前执行代才清理资源并更新状态
       // 防止 cancelAll() 放行旧执行链后，旧 finally 覆盖新一代的运行状态
       if (myGen === this.executionGen) {
-        this.releaseAllResources()
+        try {
+          this.releaseAllResources()
+        } catch (err) {
+          console.error('[Runtime] releaseAllResources 失败（强制复位状态）:', err)
+        }
         this.running = false
         this.onStateChange?.(false)
       }
@@ -308,7 +312,11 @@ export class Runtime {
     if (this.abortController) {
       this.abortController.abort()
     }
-    this.releaseAllResources()
+    try {
+      this.releaseAllResources()
+    } catch (err) {
+      console.error('[Runtime] stop 中 releaseAllResources 失败（强制复位状态）:', err)
+    }
     this.running = false
     this.onStateChange?.(false)
   }
@@ -318,40 +326,52 @@ export class Runtime {
    * 此方法幂等（可安全重复调用），被 stop()、execute() finally、destroy() 共同使用
    */
   private releaseAllResources(): void {
-    // 1. 取消所有 GSAP 动画并放行挂起的 Promise（防止旧执行链永久挂起）
-    this.animQueue.cancelAll()
-    // 完全替换为新的 AnimationQueue 实例，确保零共享状态
-    // 旧 AnimationQueue 成为孤儿，旧执行链即便放行后也不会影响新队列
-    this.animQueue = new AnimationQueue()
+    try {
+      // 1. 取消所有 GSAP 动画并放行挂起的 Promise（防止旧执行链永久挂起）
+      this.animQueue.cancelAll()
+      // 完全替换为新的 AnimationQueue 实例，确保零共享状态
+      // 旧 AnimationQueue 成为孤儿，旧执行链即便放行后也不会影响新队列
+      this.animQueue = new AnimationQueue()
 
-    // 2. 清理所有音频（通过 AudioManager 释放 Howl 音频缓冲 + 取消 rAF）
-    this.audioManager.cleanupAllAudio(this.audioObjects)
-    this.audioManager.cancelAnimFrameIds()
+      // 2. 清理所有音频（通过 AudioManager 释放 Howl 音频缓冲 + 取消 rAF）
+      try { this.audioManager.cleanupAllAudio(this.audioObjects) } catch (e) { console.warn('[Runtime] cleanupAllAudio error:', e) }
+      try { this.audioManager.cancelAnimFrameIds() } catch (e) { console.warn('[Runtime] cancelAnimFrameIds error:', e) }
 
-    // 3. 销毁所有 SceneObject（释放 sprite 纹理 + GPU 滤镜资源）
-    const objs = Array.from(this.sceneObjects.values())
-    objs.forEach((obj) => obj.end())
-    this.sceneObjects.clear()
+      // 3. 销毁所有 SceneObject（释放 sprite 纹理 + GPU 滤镜资源）
+      const objs = Array.from(this.sceneObjects.values())
+      objs.forEach((obj) => {
+        try { obj.end() } catch (e) { console.warn('[Runtime] obj.end error:', e) }
+      })
+      this.sceneObjects.clear()
 
-    // 3.5 移除并销毁所有 FilterObject（从 sceneContainer.filters 移除 + 销毁 GPU 滤镜资源）
-    const filters = Array.from(this.filterObjects.values())
-    filters.forEach((f) => f.end())
-    this.filterObjects.clear()
-    // 确保场景容器无残留滤镜
-    this.sceneContainer.filters = null
+      // 3.5 移除并销毁所有 FilterObject（从 sceneContainer.filters 移除 + 销毁 GPU 滤镜资源）
+      const filters = Array.from(this.filterObjects.values())
+      filters.forEach((f) => {
+        try { f.end() } catch (e) { console.warn('[Runtime] filter.end error:', e) }
+      })
+      this.filterObjects.clear()
+      // 确保场景容器无残留滤镜
+      try { this.sceneContainer.filters = null } catch { /* ignore */ }
 
-    // 3.6 放行挂起的 pause() 点击 resolve
-    this.userClickResolve?.()
-    this.userClickResolve = null
+      // 3.6 放行挂起的 pause() 点击 resolve
+      try {
+        this.userClickResolve?.()
+        this.userClickResolve = null
+      } catch { /* ignore */ }
 
-    // 4. 强制清空场景容器所有子节点（兜底清除残留精灵/容器）
-    this.sceneContainer.removeChildren()
+      // 4. 强制清空场景容器所有子节点（兜底清除残留精灵/容器）
+      try { this.sceneContainer.removeChildren() } catch { /* ignore */ }
 
-    // 5. 重置 UI（隐藏对话框和选项面板——如果脚本中断时它们还可见）
-    this.onResetUI?.()
+      // 5. 重置 UI（隐藏对话框和选项面板——如果脚本中断时它们还可见）
+      try { this.onResetUI?.() } catch { /* ignore */ }
+    } catch (err) {
+      console.error('[Runtime] releaseAllResources 发生未预期异常:', err)
+    }
+
+    // === 以下操作在 try 之外执行，确保状态一定能复位 ===
 
     // 6. 重置符号表（重建内置函数和工厂对象，清除用户变量/绑定）
-    this.initSymbolTable()
+    try { this.initSymbolTable() } catch { /* ignore */ }
 
     // 7. 清除 async_time 栈（防止旧执行链的栈残留影响新执行）
     this.asyncTimeStack = []

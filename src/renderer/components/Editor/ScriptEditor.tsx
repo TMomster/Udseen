@@ -4,6 +4,7 @@ import { useProjectStore } from '../../store/projectStore'
 import { useSettingsStore } from '../../store/settingsStore'
 import { ContextMenu } from '../VisualEditor/ContextMenu'
 import type { ContextMenuItem } from '../VisualEditor/ContextMenu'
+import { getErrorImageUrl } from '../../assets/ErrorImages'
 
 /** 执行行高亮装饰样式类名 */
 const EXECUTION_LINE_CLASS_NAME = 'execution-line-highlight'
@@ -339,8 +340,10 @@ export function ScriptEditor(): JSX.Element {
 
         if (!exists) {
           if (currentHoverKey !== hoverKey) return
+          const errorUrl = getErrorImageUrl(factoryType)
           hoverOverlay.innerHTML =
-            `<div style="color:#f44;padding:4px 8px;font-size:13px;">⚠ 文件未找到: <code>${escapeHtml(path)}</code></div>`
+            `<div style="margin-bottom:6px;font-size:13px;color:#f44;">⚠ 文件未找到: <code>${escapeHtml(path)}</code></div>` +
+            `<img src="${errorUrl}" style="max-width:300px;max-height:250px;border-radius:4px;border:1px solid #444;display:block;" />`
           return
         }
 

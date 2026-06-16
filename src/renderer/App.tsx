@@ -5,6 +5,7 @@ import { TemplateSettings } from './components/TemplateSettings'
 import { HelpPanel } from './components/HelpPanel/HelpPanel'
 import { Settings } from './components/Settings/Settings'
 import { SplashScreen } from './components/SplashScreen/SplashScreen'
+import { preloadErrorTextures } from './assets/ErrorImages'
 
 import { useProjectStore, syncWindowTitle } from './store/projectStore'
 import { usePreviewStore } from './store/previewStore'
@@ -57,8 +58,11 @@ function App(): JSX.Element {
       if (!useSettingsStore.getState().loaded) {
         await loadConfig()
       }
-      // 加载内置得意黑字体
-      await loadSmileySansFont()
+      // 并行加载：内置得意黑字体 + 错误纹理预加载
+      await Promise.all([
+        loadSmileySansFont(),
+        preloadErrorTextures(),
+      ])
       setBootState('splash')
       setShowSplash(true)
     }
