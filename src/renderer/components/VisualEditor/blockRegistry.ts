@@ -116,16 +116,16 @@ const PALETTE_ITEMS: PaletteItem[] = [
     create: (id) => baseBlock(id, 'BgBegin', '显示背景', 'Show Background', '#00cec9', [], {})
   },
   {
-    type: 'BgFullScreen', category: '背景', label: '全屏黑色', labelEn: 'Full Black', color: '#00cec9',
-    create: (id) => baseBlock(id, 'BgFullScreen', '全屏黑色', 'Full Black', '#00cec9', [], {})
+    type: 'BgIndex', category: '背景', label: '背景层级', labelEn: 'Bg Layer', color: '#00cec9',
+    create: (id) => baseBlock(id, 'BgIndex', '背景层级', 'Bg Layer', '#00cec9', [
+      mkPort('right', 'value', '层级', 'number'),
+    ], { index: 100 })
   },
   {
-    type: 'BgFullWhite', category: '背景', label: '全屏白色', labelEn: 'Full White', color: '#00cec9',
-    create: (id) => baseBlock(id, 'BgFullWhite', '全屏白色', 'Full White', '#00cec9', [], {})
-  },
-  {
-    type: 'BgFit', category: '背景', label: '智能缩放', labelEn: 'Smart Fit', color: '#00cec9',
-    create: (id) => baseBlock(id, 'BgFit', '智能缩放', 'Smart Fit', '#00cec9', [], {})
+    type: 'BgVisible', category: '背景', label: '可见性', labelEn: 'Bg Visibility', color: '#00cec9',
+    create: (id) => baseBlock(id, 'BgVisible', '可见性', 'Bg Visibility', '#00cec9', [
+      mkPort('right', 'value', '可见', 'boolean'),
+    ], { able: true })
   },
 
   // === 文本 (Text) ===
